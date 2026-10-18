@@ -10,6 +10,5 @@ SakuraBox 是基于 [NekoBox for Android](https://github.com/MatsuriDayo/NekoBox
 
 ## 许可证与来源
 
-见 [LICENSE](LICENSE)、[AUTHORS](AUTHORS)、[NOTICE](NOTICE)、`libcore/LICENSE` 及应用内第三方许可证。保留原开发者版权，品牌更名不改变开源义务。
-
+见 [LICENSE](LICENSE)、[AUTHORS](AUTHORS)、[NOTICE](NOTICE)、`libcore/LICENSE` 及应用内第三方许可证。保留原开发者版权
 Credits: [SagerNet/sing-box](https://github.com/SagerNet/sing-box)、[MatsuriDayo/NekoBoxForAndroid](https://github.com/MatsuriDayo/NekoBoxForAndroid)、[SagerNet/SagerNet](https://github.com/SagerNet/SagerNet)、[shadowsocks-android](https://github.com/shadowsocks/shadowsocks-android)、[Yacd-meta](https://github.com/MetaCubeX/Yacd-meta)。
