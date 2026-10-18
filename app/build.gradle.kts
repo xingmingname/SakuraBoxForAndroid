@@ -1,5 +1,7 @@
 @file:Suppress("UnstableApiUsage")
 
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -28,6 +30,9 @@ android {
         aidl = true
     }
     namespace = "io.nekohasekai.sagernet"
+    defaultConfig {
+        testInstrumentationRunner = "android.test.InstrumentationTestRunner"
+    }
     packaging {
         jniLibs {
             useLegacyPackaging = true
@@ -40,7 +45,17 @@ android {
 
 dependencies {
 
-    implementation(fileTree("libs"))
+    // Framework test APIs are optional SDK libraries; keep them out of APKs.
+    androidTestCompileOnly(files("${android.sdkDirectory}/platforms/android-35/optional/android.test.base.jar"))
+    androidTestCompileOnly(files("${android.sdkDirectory}/platforms/android-35/optional/android.test.runner.jar"))
+
+    val localCoreAar = providers.gradleProperty("nekoCoreAar").orNull
+        ?: file("libs/libcore-sing-box-1.14.3-sakura-sr01.aar").absolutePath
+    require(file(localCoreAar).isFile) {
+        "Build the current SakuraBox libcore AAR first, or set -PnekoCoreAar to its verified path."
+    }
+    implementation(fileTree("libs") { exclude("libcore*.aar") })
+    implementation(files(localCoreAar))
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
     implementation("androidx.core:core-ktx:1.9.0")
@@ -85,4 +100,31 @@ dependencies {
     ksp("com.github.MatrixDev.Roomigrant:RoomigrantCompiler:0.3.4")
 
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
+
+    testImplementation("junit:junit:4.13.2")
+}
+
+// Instrumentation executes the application's classes. Resolve their shared
+// dependencies to the exact production versions rather than a separate graph.
+configurations.matching {
+    it.name.endsWith("AndroidTestCompileClasspath") || it.name.endsWith("AndroidTestRuntimeClasspath")
+}.configureEach {
+    val productionPrefix = name.removeSuffix("AndroidTestCompileClasspath")
+        .removeSuffix("AndroidTestRuntimeClasspath")
+    var productionVersions: Map<String, String>? = null
+    resolutionStrategy.eachDependency {
+        if (productionVersions == null) {
+            val versions = mutableMapOf<String, String>()
+            for (suffix in listOf("CompileClasspath", "RuntimeClasspath")) {
+                configurations.getByName(productionPrefix + suffix).incoming.resolutionResult.allComponents
+                    .mapNotNull { it.id as? ModuleComponentIdentifier }
+                    .forEach {
+                        versions["${it.group}:${it.module}"] = it.version
+                        if (it.module.endsWith("-jvm")) versions["${it.group}:${it.module.removeSuffix("-jvm")}"] = it.version
+                    }
+            }
+            productionVersions = versions
+        }
+        productionVersions?.get("${requested.group}:${requested.name}")?.let { useVersion(it) }
+    }
 }

@@ -24,4 +24,9 @@ class ProxyService : Service(), BaseService.Interface {
     override fun onBind(intent: Intent) = super.onBind(intent)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int =
         super<BaseService.Interface>.onStartCommand(intent, flags, startId)
+
+    override fun onDestroy() {
+        destroyService()
+        super.onDestroy()
+    }
 }

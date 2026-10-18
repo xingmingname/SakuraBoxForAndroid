@@ -83,8 +83,6 @@ func nekoboxAndroidOutboundRegistry() *outbound.Registry {
 	tuic.RegisterOutbound(registry)
 	hysteria2.RegisterOutbound(registry)
 
-	wireguard.RegisterOutbound(registry)
-
 	return registry
 }
 
@@ -117,6 +115,9 @@ func nekoboxAndroidDNSTransportRegistry(localTransport LocalDNSTransport) *dns.T
 			return newPlatformTransport(localTransport, tag, options), nil
 		})
 	}
+	dns.RegisterTransport(registry, "dhcp", func(ctx context.Context, logger log.ContextLogger, tag string, options option.DHCPDNSServerOptions) (adapter.DNSTransport, error) {
+		return newPlatformDHCPTransport(ctx, logger, tag, options, localTransport)
+	})
 
 	return registry
 }

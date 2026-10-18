@@ -1,0 +1,150 @@
+//go:build with_gvisor && with_quic && with_utls
+
+package libcore
+
+import (
+	"context"
+	"crypto/ecdh"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/json"
+	"encoding/pem"
+	"io"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
+	"sync/atomic"
+	"testing"
+
+	"github.com/matsuridayo/libneko/speedtest"
+	"github.com/miekg/dns"
+	box "github.com/sagernet/sing-box"
+	"github.com/sagernet/sing-box/boxapi"
+	"github.com/sagernet/sing-box/common/dialer"
+)
+
+// Same real local protocol peers as the existing regression, but clients use
+// the production test constructor and per-instance control, not a replacement Box.
+type pinnedProtocolControl struct{ platform *regressionPlatform }
+
+func (*pinnedProtocolControl) CheckNetwork() error { return nil }
+func (p *pinnedProtocolControl) BindSocket(fd int32) error {
+	return p.platform.AutoDetectInterfaceControl(int(fd))
+}
+func pinnedProtocolCore(t *testing.T, config map[string]any, p *regressionPlatform) (*box.Box, context.Context) {
+	t.Helper()
+	config["log"] = map[string]any{"disabled": true}
+	raw, e := json.Marshal(config)
+	if e != nil {
+		t.Fatal(e)
+	}
+	b, e := NewTestSingBoxInstance(string(raw), new(pinnedResolver), &pinnedProtocolControl{p})
+	if e != nil {
+		t.Fatal(e)
+	}
+	t.Cleanup(func() { b.Close() })
+	if e = b.Start(); e != nil {
+		t.Fatal(e)
+	}
+	return b.Box, context.Background()
+}
+
+func TestPinnedURLTestLiveProtocolsAndDNSBootstrap(t *testing.T) {
+	// Mirror libcore/box.go's Android initialization in the isolated host package.
+	previous := dialer.DoNotSelectInterface
+	dialer.DoNotSelectInterface = true
+	t.Cleanup(func() { dialer.DoNotSelectInterface = previous })
+	for _, protocol := range []string{"hysteria2", "vless-tls", "vless-reality"} {
+		for _, domain := range []bool{false, true} {
+			name := protocol + "/ip-node"
+			if domain {
+				name = protocol + "/doh-domain-node"
+			}
+			t.Run(name, func(t *testing.T) {
+				var hits, dnsHits atomic.Int32
+				target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { hits.Add(1); w.WriteHeader(http.StatusNoContent) }))
+				defer target.Close()
+				// This TLS endpoint supplies a generated test-only certificate,
+				// serves DNS bootstrap and is the Reality camouflage handshake peer.
+				doh := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					var request dns.Msg
+					data, e := io.ReadAll(r.Body)
+					if e != nil || request.Unpack(data) != nil || len(request.Question) != 1 {
+						w.WriteHeader(400)
+						return
+					}
+					dnsHits.Add(1)
+					response := new(dns.Msg)
+					response.SetReply(&request)
+					if request.Question[0].Qtype == dns.TypeA {
+						response.Answer = []dns.RR{&dns.A{Hdr: dns.RR_Header{Name: request.Question[0].Name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 30}, A: net.IPv4(127, 0, 0, 1)}}
+					}
+					answer, e := response.Pack()
+					if e != nil {
+						w.WriteHeader(500)
+						return
+					}
+					w.Header().Set("Content-Type", "application/dns-message")
+					w.Write(answer)
+				}))
+				doh.EnableHTTP2 = true
+				doh.TLS = &tls.Config{MinVersion: tls.VersionTLS13}
+				doh.StartTLS()
+				defer doh.Close()
+				cert := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: doh.TLS.Certificates[0].Certificate[0]}))
+				key, e := x509.MarshalPKCS8PrivateKey(doh.TLS.Certificates[0].PrivateKey)
+				if e != nil {
+					t.Fatal(e)
+				}
+				keyPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: key}))
+				dohPort := doh.Listener.Addr().(*net.TCPAddr).Port
+				listenNetwork := "tcp"
+				if protocol == "hysteria2" {
+					listenNetwork = "udp"
+				}
+				port := loopbackPort(t, listenNetwork)
+				serverTLS := map[string]any{"enabled": true, "certificate": []string{cert}, "key": []string{keyPEM}}
+				clientTLS := map[string]any{"enabled": true, "server_name": "127.0.0.1", "certificate": []string{cert}}
+				serverInbound := map[string]any{"type": "vless", "tag": "server", "listen": "127.0.0.1", "listen_port": port, "tls": serverTLS, "users": []any{map[string]any{"name": "synthetic", "uuid": "00000000-0000-4000-8000-000000000001"}}}
+				serverAddress := "127.0.0.1"
+				if domain {
+					serverAddress = "node.invalid"
+				}
+				outbound := map[string]any{"type": "vless", "tag": "node", "server": serverAddress, "server_port": port, "uuid": "00000000-0000-4000-8000-000000000001", "tls": clientTLS, "domain_resolver": map[string]any{"server": "dns-direct", "strategy": "ipv4_only"}}
+				if protocol == "hysteria2" {
+					serverInbound["type"] = "hysteria2"
+					serverInbound["users"] = []any{map[string]any{"name": "synthetic", "password": "local-test-only"}}
+					outbound["type"] = "hysteria2"
+					delete(outbound, "uuid")
+					outbound["password"] = "local-test-only"
+				} else if protocol == "vless-reality" {
+					priv, e := ecdh.X25519().GenerateKey(rand.Reader)
+					if e != nil {
+						t.Fatal(e)
+					}
+					serverInbound["users"] = []any{map[string]any{"name": "synthetic", "uuid": "00000000-0000-4000-8000-000000000001", "flow": "xtls-rprx-vision"}}
+					serverInbound["tls"] = map[string]any{"enabled": true, "server_name": "example.com", "reality": map[string]any{"enabled": true, "handshake": map[string]any{"server": "127.0.0.1", "server_port": dohPort}, "private_key": base64.RawURLEncoding.EncodeToString(priv.Bytes()), "short_id": []string{"0123456789abcdef"}}}
+					outbound["flow"] = "xtls-rprx-vision"
+					outbound["tls"] = map[string]any{"enabled": true, "server_name": "example.com", "utls": map[string]any{"enabled": true, "fingerprint": "chrome"}, "reality": map[string]any{"enabled": true, "public_key": base64.RawURLEncoding.EncodeToString(priv.PublicKey().Bytes()), "short_id": "0123456789abcdef"}}
+				}
+				urlTestCore(t, map[string]any{"inbounds": []any{serverInbound}, "outbounds": []any{map[string]any{"type": "direct", "tag": "direct"}}, "route": map[string]any{"final": "direct"}}, nil)
+				p := new(regressionPlatform)
+				client, _ := pinnedProtocolCore(t, map[string]any{"dns": map[string]any{"servers": []any{map[string]any{"type": "https", "tag": "dns-direct", "server": "127.0.0.1", "server_port": dohPort, "path": "/dns-query", "tls": map[string]any{"enabled": true, "server_name": "127.0.0.1", "certificate": []string{cert}}}}, "final": "dns-direct"}, "outbounds": []any{map[string]any{"type": "selector", "tag": "proxy", "outbounds": []string{"node"}, "default": "node"}, outbound, map[string]any{"type": "direct", "tag": "direct"}}, "route": map[string]any{"auto_detect_interface": true, "final": "proxy", "default_domain_resolver": map[string]any{"server": "dns-direct", "strategy": "ipv4_only"}}}, p)
+				latency, err := speedtest.UrlTest(boxapi.CreateProxyHttpClient(client, nil), target.URL, 5000, speedtest.UrlTestStandard_RTT)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if latency < 0 || hits.Load() != 2 || p.calls.Load() == 0 {
+					t.Fatalf("live proxy URL Test failed: hits=%d control=%d", hits.Load(), p.calls.Load())
+				}
+				if domain && dnsHits.Load() == 0 {
+					t.Fatal("domain-node test bypassed DNS bootstrap")
+				}
+				t.Log("URL Test: 2 HTTP requests via real " + protocol + " peer, selector=node, simulated instance binding calls=" + strconv.Itoa(int(p.calls.Load())) + ", bootstrap DNS=" + strconv.Itoa(int(dnsHits.Load())))
+			})
+		}
+	}
+}

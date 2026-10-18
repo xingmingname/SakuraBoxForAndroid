@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_confirm_title">允许 VPN 快捷操作？</string>
+    <string name="shortcut_confirm_allow">仅允许这一次</string>
+    <string name="shortcut_confirm_toggle">是否允许本次请求启动或停止 SakuraBox？请求可能来自其他应用。若非你主动操作，请取消。</string>
+    <string name="shortcut_confirm_enable">是否允许本次请求启动 SakuraBox？请求可能来自其他应用。若非你主动操作，请取消。</string>
+    <string name="shortcut_confirm_disable">是否允许本次请求停止 SakuraBox？请求可能来自其他应用。若非你主动操作，请取消。</string>
+    <string name="shortcut_confirm_profile">是否允许本次请求选择“%1$s”（ID %2$d）并启动或切换 SakuraBox？若此节点已在运行，则会停止。请求可能来自其他应用，若非你主动操作，请取消。</string>
+</resources>

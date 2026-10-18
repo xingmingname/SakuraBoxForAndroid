@@ -24,12 +24,18 @@ import moe.matsuri.nb4a.Protocols
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.proxy.config.ConfigBean
 import moe.matsuri.nb4a.utils.Util
+import moe.matsuri.nb4a.utils.ImportLimits
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import java.io.InterruptedIOException
 import org.ini4j.Ini
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
-import org.yaml.snakeyaml.TypeDescription
-import org.yaml.snakeyaml.Yaml
+import moe.matsuri.nb4a.utils.SafeYaml
 import org.yaml.snakeyaml.error.YAMLException
 import java.io.StringReader
 import androidx.core.net.toUri
@@ -48,9 +54,9 @@ object RawUpdater : GroupUpdater() {
         val link = subscription.link
         var proxies: List<AbstractBean>
         if (link.startsWith("content://")) {
-            val contentText = app.contentResolver.openInputStream(link.toUri())
-                ?.bufferedReader()
-                ?.readText()
+            val contentText = runInterruptible(Dispatchers.IO) {
+                app.contentResolver.openInputStream(link.toUri())?.use { ImportLimits.readUtf8(it) }
+            }
 
             proxies = contentText?.let { parseRaw(contentText) }
                 ?: error(app.getString(R.string.no_proxies_found_in_subscription))
@@ -87,33 +93,34 @@ object RawUpdater : GroupUpdater() {
             }
         }
 
+        currentCoroutineContext().ensureActive()
+        ImportLimits.checkNodeCount(proxies.size.toLong())
         val proxiesMap = LinkedHashMap<String, AbstractBean>()
+        val names = ImportLimits.Names()
         for (proxy in proxies) {
-            var index = 0
-            var name = proxy.displayName()
-            while (proxiesMap.containsKey(name)) {
-                println("Exists name: $name")
-                index++
-                name = name.replace(" (${index - 1})", "")
-                name = "$name ($index)"
-                proxy.name = name
-            }
-            proxiesMap[proxy.displayName()] = proxy
+            currentCoroutineContext().ensureActive()
+            val original = proxy.displayName()
+            val name = names.allocate(original)
+            if (name != original) proxy.name = name
+            proxiesMap[name] = proxy
         }
         proxies = proxiesMap.values.toList()
 
         if (subscription.forceResolve) forceResolve(proxies, proxyGroup.id)
 
+        currentCoroutineContext().ensureActive()
         val exists = SagerDatabase.proxyDao.getByGroup(proxyGroup.id)
         val duplicate = ArrayList<String>()
         if (subscription.deduplication) {
             Logs.d("Before deduplication: ${proxies.size}")
             val uniqueProxies = LinkedHashSet<Protocols.Deduplication>()
             val uniqueNames = HashMap<Protocols.Deduplication, String>()
+            val uniqueIndexes = HashMap<Protocols.Deduplication, Int>()
             for (_proxy in proxies) {
+                currentCoroutineContext().ensureActive()
                 val proxy = Protocols.Deduplication(_proxy, _proxy.javaClass.toString())
                 if (!uniqueProxies.add(proxy)) {
-                    val index = uniqueProxies.indexOf(proxy)
+                    val index = uniqueIndexes.getValue(proxy)
                     if (uniqueNames.containsKey(proxy)) {
                         val name = uniqueNames[proxy]!!.replace(" ($index)", "")
                         if (name.isNotBlank()) {
@@ -123,6 +130,7 @@ object RawUpdater : GroupUpdater() {
                     }
                     duplicate.add(_proxy.displayName() + " ($index)")
                 } else {
+                    uniqueIndexes[proxy] = uniqueProxies.size - 1
                     uniqueNames[proxy] = _proxy.displayName()
                 }
             }
@@ -225,6 +233,8 @@ object RawUpdater : GroupUpdater() {
 
     @Suppress("UNCHECKED_CAST")
     suspend fun parseRaw(text: String, fileName: String = ""): List<AbstractBean>? {
+        currentCoroutineContext().ensureActive()
+        ImportLimits.checkText(text)
 
         val proxies = mutableListOf<AbstractBean>()
 
@@ -234,15 +244,15 @@ object RawUpdater : GroupUpdater() {
 
             try {
 
-                val yaml = Yaml().apply {
-                    addTypeDescription(TypeDescription(String::class.java, "str"))
-                }.loadAs(text, Map::class.java)
+                val yaml = runInterruptible(Dispatchers.Default) { SafeYaml.loadMap(text) }
 
                 val globalClientFingerprint = yaml["global-client-fingerprint"]?.toString() ?: ""
 
-                for (proxy in (yaml["proxies"] as? (List<Map<String, Any?>>) ?: error(
-                    app.getString(R.string.no_proxies_found_in_file)
-                ))) {
+                val yamlProxies = yaml["proxies"] as? List<Map<String, Any?>>
+                    ?: error(app.getString(R.string.no_proxies_found_in_file))
+                ImportLimits.checkNodeCount(yamlProxies.size.toLong())
+                for (proxy in yamlProxies) {
+                    currentCoroutineContext().ensureActive()
                     // Note: YAML numbers parsed as "Long"
 
                     when (proxy["type"] as String) {
@@ -679,26 +689,29 @@ object RawUpdater : GroupUpdater() {
         } else if (text.contains("[Interface]")) {
             // wireguard
             try {
-                proxies.addAll(parseWireGuard(text).map {
+                proxies.addAll(runInterruptible(Dispatchers.Default) { parseWireGuard(text) }.map {
                     if (fileName.isNotBlank()) it.name = fileName.removeSuffix(".conf")
                     it
                 })
                 return proxies
             } catch (e: Exception) {
+                if (e is ImportLimits.InputLimitException || e is InterruptedIOException || e is CancellationException) throw e
                 Logs.w(e)
             }
         }
 
         try {
-            val json = JSONTokener(text).nextValue()
-            return parseJSON(json)
+            val json = runInterruptible(Dispatchers.Default) { JSONTokener(text).nextValue() }
+            return runInterruptible(Dispatchers.Default) { parseJSON(json) }
         } catch (ignored: Exception) {
+            if (ignored is ImportLimits.InputLimitException || ignored is InterruptedIOException || ignored is CancellationException) throw ignored
         }
 
         try {
             return parseProxies(text.decodeBase64UrlSafe()).takeIf { it.isNotEmpty() }
                 ?: error("Not found")
         } catch (e: Exception) {
+            if (e is ImportLimits.InputLimitException || e is InterruptedIOException || e is CancellationException) throw e
             Logs.w(e)
         }
 
@@ -707,6 +720,7 @@ object RawUpdater : GroupUpdater() {
         } catch (e: SubscriptionFoundException) {
             throw e
         } catch (ignored: Exception) {
+            if (ignored is ImportLimits.InputLimitException || ignored is InterruptedIOException || ignored is CancellationException) throw ignored
         }
 
         return null
@@ -720,6 +734,7 @@ object RawUpdater : GroupUpdater() {
     }
 
     fun parseWireGuard(conf: String): List<WireGuardBean> {
+        ImportLimits.checkText(conf)
         val ini = Ini(StringReader(conf))
         val iface = ini["Interface"] ?: error("Missing 'Interface' selection")
         val bean = WireGuardBean().applyDefaultValues()
@@ -731,7 +746,9 @@ object RawUpdater : GroupUpdater() {
         val peers = ini.getAll("Peer")
         if (peers.isNullOrEmpty()) error("Missing 'Peer' selections")
         val beans = mutableListOf<WireGuardBean>()
+        ImportLimits.checkNodeCount(peers.size.toLong())
         for (peer in peers) {
+            ImportLimits.checkCancelled()
             val endpoint = peer["Endpoint"]
             if (endpoint.isNullOrBlank() || !endpoint.contains(":")) {
                 continue
@@ -749,6 +766,7 @@ object RawUpdater : GroupUpdater() {
     }
 
     fun parseJSON(json: Any): List<AbstractBean> {
+        ImportLimits.checkCancelled()
         val proxies = ArrayList<AbstractBean>()
 
         if (json is JSONObject) {
@@ -765,10 +783,16 @@ object RawUpdater : GroupUpdater() {
                     return listOf(json.parseTrojanGo())
                 }
 
+                json.has("endpoints") && json.getJSONArray("endpoints").length() > 0 -> {
+                    return listOfNotNull(io.nekohasekai.sagernet.fmt.importEndpointConfig(json.toStringPretty()))
+                }
+
                 json.has("outbounds") -> {
+                    ImportLimits.checkNodeCount(json.getJSONArray("outbounds").length().toLong())
                     return json.getJSONArray("outbounds")
                         .filterIsInstance<JSONObject>()
                         .mapNotNull {
+                            ImportLimits.checkCancelled()
                             val ty = it.getStr("type")
                             if (ty == null || ty == "" ||
                                 ty == "dns" || ty == "block" || ty == "direct" || ty == "selector" || ty == "urltest"
@@ -778,6 +802,7 @@ object RawUpdater : GroupUpdater() {
                                 it
                             }
                         }.map {
+                            ImportLimits.checkCancelled()
                             ConfigBean().apply {
                                 applyDefaultValues()
                                 type = 1
@@ -796,9 +821,13 @@ object RawUpdater : GroupUpdater() {
             }
         } else {
             json as JSONArray
+            ImportLimits.checkNodeCount(json.length().toLong())
             json.forEach { _, it ->
+                ImportLimits.checkCancelled()
                 if (isJsonObjectValid(it)) {
-                    proxies.addAll(parseJSON(it))
+                    val parsed = parseJSON(it)
+                    ImportLimits.checkNodeCount(proxies.size.toLong() + parsed.size)
+                    proxies.addAll(parsed)
                 }
             }
         }

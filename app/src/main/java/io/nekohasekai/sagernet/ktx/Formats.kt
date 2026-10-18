@@ -17,6 +17,11 @@ import io.nekohasekai.sagernet.fmt.v2ray.parseV2Ray
 import moe.matsuri.nb4a.proxy.anytls.parseAnytls
 import moe.matsuri.nb4a.utils.JavaUtil.gson
 import moe.matsuri.nb4a.utils.Util
+import moe.matsuri.nb4a.utils.ImportLimits
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.CancellationException
+import java.io.InterruptedIOException
 import okhttp3.HttpUrl
 import org.json.JSONArray
 import org.json.JSONException
@@ -104,8 +109,10 @@ fun String.decodeBase64UrlSafe(): String {
 class SubscriptionFoundException(val link: String) : RuntimeException()
 
 suspend fun parseProxies(text: String): List<AbstractBean> {
-    val links = text.split('\n').flatMap { it.trim().split(' ') }
-    val linksByLine = text.split('\n').map { it.trim() }
+    ImportLimits.checkText(text)
+    val links = text.lineSequence().flatMap { it.trim().splitToSequence(' ') }.filter { it.isNotEmpty() }
+    val linksByLine = text.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }
+    var candidates = 0
 
     val entities = ArrayList<AbstractBean>()
     val entitiesByLine = ArrayList<AbstractBean>()
@@ -120,6 +127,7 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
             runCatching {
                 entities.add(parseUniversal(this))
             }.onFailure {
+                if (it is ImportLimits.InputLimitException || it is InterruptedIOException || it is CancellationException) throw it
                 Logs.w(it)
             }
         } else if (startsWith("socks://") || startsWith("socks4://") || startsWith("socks4a://") || startsWith(
@@ -130,6 +138,7 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
             runCatching {
                 entities.add(parseSOCKS(this))
             }.onFailure {
+                if (it is ImportLimits.InputLimitException || it is InterruptedIOException || it is CancellationException) throw it
                 Logs.w(it)
             }
         } else if (matches("(http|https)://.*".toRegex())) {
@@ -137,6 +146,7 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
             runCatching {
                 entities.add(parseHttp(this))
             }.onFailure {
+                if (it is ImportLimits.InputLimitException || it is InterruptedIOException || it is CancellationException) throw it
                 Logs.w(it)
                 val clashUrl = HttpUrl.Builder()
                     .scheme("https")
@@ -152,6 +162,7 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
             runCatching {
                 entities.add(parseV2Ray(this))
             }.onFailure {
+                if (it is ImportLimits.InputLimitException || it is InterruptedIOException || it is CancellationException) throw it
                 Logs.w(it)
             }
         } else if (startsWith("vless://")) {
@@ -159,6 +170,7 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
             runCatching {
                 entities.add(parseV2Ray(this))
             }.onFailure {
+                if (it is ImportLimits.InputLimitException || it is InterruptedIOException || it is CancellationException) throw it
                 Logs.w(it)
             }
         } else if (startsWith("trojan://")) {
@@ -166,6 +178,7 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
             runCatching {
                 entities.add(parseTrojan(this))
             }.onFailure {
+                if (it is ImportLimits.InputLimitException || it is InterruptedIOException || it is CancellationException) throw it
                 Logs.w(it)
             }
         } else if (startsWith("trojan-go://")) {
@@ -173,6 +186,7 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
             runCatching {
                 entities.add(parseTrojanGo(this))
             }.onFailure {
+                if (it is ImportLimits.InputLimitException || it is InterruptedIOException || it is CancellationException) throw it
                 Logs.w(it)
             }
         } else if (startsWith("ss://")) {
@@ -180,6 +194,7 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
             runCatching {
                 entities.add(parseShadowsocks(this))
             }.onFailure {
+                if (it is ImportLimits.InputLimitException || it is InterruptedIOException || it is CancellationException) throw it
                 Logs.w(it)
             }
         } else if (startsWith("naive+")) {
@@ -187,6 +202,7 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
             runCatching {
                 entities.add(parseNaive(this))
             }.onFailure {
+                if (it is ImportLimits.InputLimitException || it is InterruptedIOException || it is CancellationException) throw it
                 Logs.w(it)
             }
         } else if (startsWith("hysteria://")) {
@@ -194,6 +210,7 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
             runCatching {
                 entities.add(parseHysteria1(this))
             }.onFailure {
+                if (it is ImportLimits.InputLimitException || it is InterruptedIOException || it is CancellationException) throw it
                 Logs.w(it)
             }
         } else if (startsWith("hysteria2://") || startsWith("hy2://")) {
@@ -201,6 +218,7 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
             runCatching {
                 entities.add(parseHysteria2(this))
             }.onFailure {
+                if (it is ImportLimits.InputLimitException || it is InterruptedIOException || it is CancellationException) throw it
                 Logs.w(it)
             }
         } else if (startsWith("tuic://")) {
@@ -208,6 +226,7 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
             runCatching {
                 entities.add(parseTuic(this))
             }.onFailure {
+                if (it is ImportLimits.InputLimitException || it is InterruptedIOException || it is CancellationException) throw it
                 Logs.w(it)
             }
         } else if (startsWith("anytls://")) {
@@ -215,16 +234,23 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
             runCatching {
                 entities.add(parseAnytls(this))
             }.onFailure {
+                if (it is ImportLimits.InputLimitException || it is InterruptedIOException || it is CancellationException) throw it
                 Logs.w(it)
             }
         }
     }
 
     for (link in links) {
+        currentCoroutineContext().ensureActive()
+        if (++candidates > ImportLimits.MAX_CANDIDATES) throw ImportLimits.InputLimitException("Configuration exceeds candidate count limit")
         link.parseLink(entities)
+        ImportLimits.checkNodeCount(entities.size.toLong())
     }
     for (link in linksByLine) {
+        currentCoroutineContext().ensureActive()
+        if (++candidates > ImportLimits.MAX_CANDIDATES) throw ImportLimits.InputLimitException("Configuration exceeds candidate count limit")
         link.parseLink(entitiesByLine)
+        ImportLimits.checkNodeCount(entitiesByLine.size.toLong())
     }
 //    var isBadLink = false
     if (entities.onEach { it.initializeDefaultValues() }.size == entitiesByLine.onEach { it.initializeDefaultValues() }.size) run test@{

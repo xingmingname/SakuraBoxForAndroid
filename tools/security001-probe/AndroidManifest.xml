@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="local.sakurabox.security001probe">
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="35" />
+    <queries>
+        <package android:name="app.sakurabox.client.debug" />
+        <package android:name="app.sakurabox.client" />
+    </queries>
+    <!-- No shared UID, privileged permission or HOME/shortcut-host role. -->
+    <application android:label="Shortcut authorization probe" android:allowBackup="false">
+        <activity android:name=".ProbeActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+    <instrumentation android:name=".ProbeInstrumentation" android:targetPackage="local.sakurabox.security001probe" android:label="SB-SEC-001 separate-UID probe" />
+</manifest>

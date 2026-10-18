@@ -31,10 +31,12 @@
         <menu>
             <item
                 android:id="@+id/action_config_export_clipboard"
-                android:title="@string/action_export_clipboard" />
+                android:title="@string/export_internal_clipboard" />
             <item
                 android:id="@+id/action_config_export_file"
-                android:title="@string/action_export_file" />
+                android:title="@string/export_internal_file" />
+            <item android:id="@+id/action_config_export_official_clipboard" android:title="@string/export_official_clipboard" />
+            <item android:id="@+id/action_config_export_official_file" android:title="@string/export_official_file" />
         </menu>
     </item>
 </menu>

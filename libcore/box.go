@@ -11,17 +11,18 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/matsuridayo/libneko/protect_server"
 	"github.com/matsuridayo/libneko/speedtest"
 	"github.com/sagernet/sing-box/adapter"
+	"github.com/sagernet/sing-box/adapter/certificate"
 	"github.com/sagernet/sing-box/boxapi"
-	"github.com/sagernet/sing-box/experimental/libbox/platform"
 	"github.com/sagernet/sing-box/protocol/group"
 
 	box "github.com/sagernet/sing-box"
-	"github.com/sagernet/sing-box/common/conntrack"
 	"github.com/sagernet/sing-box/common/dialer"
+	"github.com/sagernet/sing-box/common/trafficcontrol"
 	"github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing/service"
@@ -32,7 +33,8 @@ func init() {
 	dialer.DoNotSelectInterface = true
 }
 
-var mainInstance *BoxInstance
+var mainInstance atomic.Pointer[BoxInstance]
+var mainAccess sync.Mutex
 
 func VersionBox() string {
 	version := []string{
@@ -60,42 +62,79 @@ func VersionBox() string {
 
 func ResetAllConnections(system bool) {
 	if system {
-		conntrack.Close()
-		log.Println("Reset system connections done")
+		if instance := mainInstance.Load(); instance != nil {
+			instance.resetNetwork()
+		}
 	} else {
 		log.Println("TODO: Reset user connections")
 	}
+}
+
+// Serialize the core's full reset with Start/Close. In particular, a main
+// instance can be published before Start, and a queued callback can outlive it.
+func (b *BoxInstance) resetNetwork() {
+	b.access.Lock()
+	defer b.access.Unlock()
+	if b.state != 1 || !b.started || b.Box == nil || b.ctx == nil || b.ctx.Err() != nil {
+		return
+	}
+	// The locked core closes its ConnectionManager, notifies protocol/inbound/
+	// endpoint listeners, then resets router caches. Do not close trackers again.
+	b.Box.Network().ResetNetwork(b.ctx)
+	log.Println("Reset sing-box connections and network state done")
 }
 
 type BoxInstance struct {
 	access sync.Mutex
 
 	*box.Box
-	cancel context.CancelFunc
-	state  int
+	ctx     context.Context
+	cancel  context.CancelFunc
+	state   int
+	started bool
 
-	v2api        *boxapi.SbV2rayServer
-	selector     *group.Selector
-	pauseManager pause.Manager
+	v2api          *boxapi.SbV2rayServer
+	selector       *group.Selector
+	pauseManager   pause.Manager
+	trafficTracker *trafficcontrol.Manager
 }
 
 func NewSingBoxInstance(config string, localTransport LocalDNSTransport) (b *BoxInstance, err error) {
 	defer device.DeferPanicToError("NewSingBoxInstance", func(err_ error) { err = err_ })
+	return newSingBoxInstance(config, localTransport, boxPlatformInterfaceInstance)
+}
 
+func newSingBoxInstance(config string, localTransport LocalDNSTransport, platform adapter.PlatformInterface) (b *BoxInstance, err error) {
 	// create box context
 	ctx, cancel := context.WithCancel(context.Background())
+	defer func() {
+		if b == nil {
+			cancel()
+		}
+	}()
 	ctx = box.Context(ctx,
 		nekoboxAndroidInboundRegistry(), nekoboxAndroidOutboundRegistry(), nekoboxAndroidEndpointRegistry(),
-		nekoboxAndroidDNSTransportRegistry(localTransport), nekoboxAndroidServiceRegistry(),
+		nekoboxAndroidDNSTransportRegistry(localTransport), nekoboxAndroidServiceRegistry(), certificate.NewRegistry(),
 	)
 	ctx = service.ContextWithDefaultRegistry(ctx)
-	service.MustRegister[platform.Interface](ctx, boxPlatformInterfaceInstance)
+	service.MustRegister[adapter.PlatformInterface](ctx, platform)
 
 	// parse options
 	var options option.Options
-	err = options.UnmarshalJSONContext(ctx, []byte(config))
+	configBytes, sniffOverrides, err := prepareConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("migrate config: %w", err)
+	}
+	err = options.UnmarshalJSONContext(ctx, configBytes)
 	if err != nil {
 		return nil, fmt.Errorf("decode config: %v", err)
+	}
+	// Test-only isolation policy: check final options before constructing any
+	// dialers or auxiliary clients. The main VPN keeps its original behavior.
+	if _, independentTest := platform.(*testPlatformInterface); independentTest {
+		if err = validateTestNetworkConfig(options); err != nil {
+			return nil, err
+		}
 	}
 
 	// create box
@@ -108,11 +147,17 @@ func NewSingBoxInstance(config string, localTransport LocalDNSTransport) (b *Box
 		cancel()
 		return nil, fmt.Errorf("create service: %v", err)
 	}
+	if err = applySniffOverrides(instance.Router().Rules(), sniffOverrides); err != nil {
+		instance.Close()
+		return nil, err
+	}
 
 	b = &BoxInstance{
-		Box:          instance,
-		cancel:       cancel,
-		pauseManager: service.FromContext[pause.Manager](ctx),
+		Box:            instance,
+		ctx:            ctx,
+		cancel:         cancel,
+		pauseManager:   service.FromContext[pause.Manager](ctx),
+		trafficTracker: service.PtrFromContext[trafficcontrol.Manager](ctx),
 	}
 
 	// selector
@@ -133,7 +178,9 @@ func (b *BoxInstance) Start() (err error) {
 
 	if b.state == 0 {
 		b.state = 1
-		return b.Box.Start()
+		err = b.Box.Start()
+		b.started = err == nil
+		return err
 	}
 	return errors.New("already started")
 }
@@ -151,10 +198,11 @@ func (b *BoxInstance) Close() (err error) {
 	b.state = 2
 
 	// clear main instance
-	if mainInstance == b {
-		mainInstance = nil
+	mainAccess.Lock()
+	if mainInstance.CompareAndSwap(b, nil) {
 		goServeProtect(false)
 	}
+	mainAccess.Unlock()
 
 	// close box
 	if b.cancel != nil {
@@ -181,7 +229,14 @@ func (b *BoxInstance) Wake() {
 }
 
 func (b *BoxInstance) SetAsMain() {
-	mainInstance = b
+	b.access.Lock()
+	defer b.access.Unlock()
+	if b.state == 2 {
+		return
+	}
+	mainAccess.Lock()
+	defer mainAccess.Unlock()
+	mainInstance.Store(b)
 	goServeProtect(true)
 }
 
@@ -224,14 +279,15 @@ func UrlTest(i *BoxInstance, link string, timeout int32) (latency int32, err err
 		return speedtest.UrlTest(boxapi.CreateProxyHttpClient(i.Box, connectionTracker), link, timeout, speedtest.UrlTestStandard_RTT)
 	}
 	// test direct
-	if mainInstance == nil {
+	instance := mainInstance.Load()
+	if instance == nil {
 		return speedtest.UrlTest(boxapi.CreateProxyHttpClient(nil, nil), link, timeout, speedtest.UrlTestStandard_RTT)
 	}
 	// test mainInstance
-	if mainInstance.v2api != nil {
-		connectionTracker = mainInstance.v2api.StatsService()
+	if instance.v2api != nil {
+		connectionTracker = instance.v2api.StatsService()
 	}
-	return speedtest.UrlTest(boxapi.CreateProxyHttpClient(mainInstance.Box, connectionTracker), link, timeout, speedtest.UrlTestStandard_RTT)
+	return speedtest.UrlTest(boxapi.CreateProxyHttpClient(instance.Box, connectionTracker), link, timeout, speedtest.UrlTestStandard_RTT)
 }
 
 var protectCloser io.Closer
@@ -242,8 +298,8 @@ func goServeProtect(start bool) {
 		protectCloser = nil
 	}
 	if start {
-		protectCloser = protect_server.ServeProtect("protect_path", false, 0, func(fd int) {
-			intfBox.AutoDetectInterfaceControl(int32(fd))
+		protectCloser = protect_server.ServeProtectWithError("protect_path", false, 0, func(fd int) error {
+			return intfBox.AutoDetectInterfaceControl(int32(fd))
 		})
 	}
 }

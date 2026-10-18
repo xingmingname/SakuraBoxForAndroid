@@ -31,10 +31,10 @@ object SubscriptionUpdater {
         var minDelay =
             subscriptions.minByOrNull { it.subscription!!.autoUpdateDelay }!!.subscription!!.autoUpdateDelay.toLong()
         val now = System.currentTimeMillis() / 1000L
-        var minInitDelay =
-            subscriptions.minOf { now - it.subscription!!.lastUpdated - (minDelay * 60) }
+        val minInitDelay = subscriptionInitialDelay(now, subscriptions.map {
+            it.subscription!!.let { subscription -> subscription.lastUpdated.toLong() to subscription.autoUpdateDelay.toLong() }
+        })
         if (minDelay < 15) minDelay = 15
-        if (minInitDelay > 60) minInitDelay = 60
 
         // main process
         RemoteWorkManager.getInstance(app).enqueueUniquePeriodicWork(
@@ -58,7 +58,7 @@ object SubscriptionUpdater {
             .setWhen(0)
             .setTicker(applicationContext.getString(R.string.forward_success))
             .setContentTitle(applicationContext.getString(R.string.subscription_update))
-            .setSmallIcon(R.drawable.ic_service_active)
+            .setSmallIcon(R.drawable.ic_sakura_notification)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
 
         override suspend fun doWork(): Result {
@@ -72,7 +72,7 @@ object SubscriptionUpdater {
             if (subscriptions.isNotEmpty()) for (profile in subscriptions) {
                 val subscription = profile.subscription!!
 
-                if (((System.currentTimeMillis() / 1000).toInt() - subscription.lastUpdated) < subscription.autoUpdateDelay * 60) {
+                if ((System.currentTimeMillis() / 1000L - subscription.lastUpdated.toLong()) < subscription.autoUpdateDelay.toLong() * 60L) {
                     Logs.d("work: not updating " + profile.displayName())
                     continue
                 }

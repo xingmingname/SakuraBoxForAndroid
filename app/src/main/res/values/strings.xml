@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">NekoBox</string>
-    <string name="app_name_long" translatable="false">NekoBox for Android</string>
+    <string name="app_name" translatable="false">SakuraBox</string>
+    <string name="app_name_long" translatable="false">SakuraBox for Android</string>
+    <string name="branding_attribution" translatable="false">SakuraBox — Based on NekoBox for Android</string>
     <string name="app_desc">The universal proxy toolchain for Android, written in Kotlin.</string>
     <string name="project">Project</string>
     <string name="github">Source code</string>
@@ -14,7 +15,6 @@
     <string name="menu_group">Group</string>
     <string name="menu_about">About</string>
     <string name="theme">Theme</string>
-    <string name="document">Document</string>
     <string name="group_default">Ungrouped</string>
     <string name="quick_toggle">Toggle</string>
     <string name="quick_enable">Enable</string>
@@ -281,8 +281,6 @@
     <string name="no_proxies_found_in_file">No proxies found in the file</string>
     <string name="no_proxies_found_in_clipboard">No proxies found in the clipboard</string>
     <string name="deduplication">Deduplication</string>
-    <string name="donate">Donate</string>
-    <string name="donate_info">I love money</string>
     <string name="ignore_battery_optimizations">Ignore battery optimizations</string>
     <string name="ignore_battery_optimizations_sum">Remove some restrictions</string>
     <!-- plugin -->
@@ -530,7 +528,6 @@
     <string name="log_level">Log Level</string>
     <string name="enable_clash_api_summary">Provide clash api and yacd dashboard at 127.0.0.1:9090</string>
     <string name="xtls_flow">Flow (VLESS Sub-protocol)</string>
-    <string name="ads">Ads</string>
     <string name="bypass_lan_in_core">Bypass LAN in Core</string>
     <string name="need_restart">Restart APP to apply changes</string>
     <string name="use_selector">Use selector</string>
@@ -568,7 +565,15 @@
     <string name="padding">Padding</string>
     <string name="network_change_reset_connections">Reset outbound connections when network changes</string>
     <string name="wake_reset_connections">Reset outbound connections when device wake from sleep</string>
-    <string name="preview_version_hint">This application is a preview version and may contain many problems. If you do not want to test it, please go to GitHub to download the Release version!</string>
+    <string name="preview_version_hint">This application is a preview version and may contain problems. Please use it with caution.</string>
+    <string name="feature_not_available_yet">Not available yet</string>
+    <string name="update_no_release">No published release is available for this channel.</string>
+    <string name="update_error_network">Update check failed: network unavailable.</string>
+    <string name="update_error_timeout">Update check timed out.</string>
+    <string name="update_error_api">GitHub API error (HTTP %1$d). Please try again later.</string>
+    <string name="update_error_json">Update check failed: invalid release response.</string>
+    <string name="update_error_version">Update check failed: unrecognized version tag.</string>
+    <string name="update_error_incomplete">Update check failed: release pagination is incomplete.</string>
     <string name="check_update_preview">Check for preview version updates</string>
     <string name="check_update_release">Check for release version updates</string>
     <string name="update_dialog_title">New version available</string>
@@ -579,4 +584,9 @@
     <string name="minimize">Minimize</string>
     <string name="app_list_permission_denied">Unable to read installed apps.\nThis is usually because the system has restricted app read permissions.\nPlease grant permissions in the system settings.</string>
     <string name="open_app_settings">Open System Settings</string>
+
+    <string name="export_internal_clipboard">SakuraBox internal — copy</string>
+    <string name="export_internal_file">SakuraBox internal — save file</string>
+    <string name="export_official_clipboard">Official sing-box — copy</string>
+    <string name="export_official_file">Official sing-box — save file</string>
 </resources>

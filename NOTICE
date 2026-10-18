@@ -1,0 +1,46 @@
+SakuraBox for Android is derived from NekoBox for Android and SagerNet.
+Preserve LICENSE, AUTHORS, libcore/LICENSE, application license assets, and source file copyright notices.
+
+Application license: GNU GPL version 3 or later, as stated in LICENSE and the source notices.
+Native dependencies have their own licenses retained in the pinned source checkouts.
+The patched sing-box version identifier 1.14.3-sakura identifies a local adaptation of sing-box v1.14.3.
+Upstream: https://github.com/SagerNet/sing-box
+Android upstream: https://github.com/MatsuriDayo/NekoBoxForAndroid
+
+app/src/main/assets/yacd.zip is the retained Yacd-meta 0.3.6 third-party web UI.
+Source project: https://github.com/MetaCubeX/Yacd-meta
+Verified equivalent source: e3bba3b401383a207da875b279d2e713048782ab
+https://github.com/MetaCubeX/Yacd-meta/tree/e3bba3b401383a207da875b279d2e713048782ab
+The pinned source and frozen pnpm lockfile reproduce 45 of the archive's 46 files
+byte for byte, including every JS, CSS, HTML, service worker, image and font file.
+The remaining CNAME differs only by a terminal newline. See BUILDING.md.
+Archive SHA-256: 5ab53b5c2dbee58d2074b00b71f228b3f7c0e748c9ac34501d33b01ef186b7a7
+The ZIP comment records deployment commit f2876c17419e95622a78c73d1aba10fda1a14a47
+and the archive is dated 2023-06-14. That deployment commit cannot currently be
+resolved from the official repository. The equivalent source is not claimed to
+recover the unique historical build commit, environment or deployment history.
+Complete bundled dependency, icon and font notices are reproduced in
+app/src/main/assets/LICENSE, also accessible through the app's license viewer.
+The reference build identifies 58 runtime npm components; font licenses are
+separate: Inter 3.019 uses OFL-1.1, Roboto Mono 3.000 uses Apache-2.0.
+Do not interpret npm CSS package metadata as licensing the font data under MIT.
+Two MIT components supply explicit license declarations but no separate LICENSE
+file; their pinned declarations, author metadata and standard reference terms
+are identified in the application license asset, without invented copyright dates.
+The shipped ZIP has not been replaced; yacd.version.txt value 3 remains the
+Android asset revision counter, not the UI's semantic version.
+
+Upstream yacd copyright and MIT notice, reproduced from the official Yacd-meta source history:
+https://github.com/MetaCubeX/Yacd-meta/blob/1174878e8c152f51db308646e6d7e4a7cc06e271/LICENSE
+MIT License
+
+Copyright (c) Haishan
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+gradle/wrapper/gradle-wrapper.jar is the Gradle bootstrap binary, required to invoke the pinned Wrapper.
+Other APK/AAR/SO and private signing files are deliberately excluded from source distribution.

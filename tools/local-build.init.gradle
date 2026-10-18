@@ -1,0 +1,6 @@
+def outputRoot = gradle.startParameter.projectProperties['nekoLocalBuildRoot'] ?: System.getenv('NEKO_LOCAL_BUILD_ROOT')
+if (!outputRoot) throw new GradleException('nekoLocalBuildRoot is required for isolated local builds')
+gradle.beforeProject { project ->
+    def name = project.rootDir.name == 'buildSrc' ? 'buildSrc' : project.name
+    project.layout.buildDirectory.set(new File(outputRoot, name))
+}

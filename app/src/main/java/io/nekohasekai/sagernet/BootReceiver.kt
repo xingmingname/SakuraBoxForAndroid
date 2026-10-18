@@ -10,6 +10,7 @@ import io.nekohasekai.sagernet.bg.SubscriptionUpdater
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
+import io.nekohasekai.sagernet.shortcut.ProtectedVpnBootActions
 
 class BootReceiver : BroadcastReceiver() {
     companion object {
@@ -23,6 +24,7 @@ class BootReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
+        if (!ProtectedVpnBootActions.accepts(intent.action, Build.VERSION.SDK_INT)) return
         runOnDefaultDispatcher {
             SubscriptionUpdater.reconfigureUpdater()
         }

@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.fmt
 
 import android.widget.Toast
+import libcore.Libcore
 import io.nekohasekai.sagernet.*
 import io.nekohasekai.sagernet.bg.VpnService
 import io.nekohasekai.sagernet.database.DataStore
@@ -22,7 +23,7 @@ import io.nekohasekai.sagernet.fmt.tuic.buildSingBoxOutboundTuicBean
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.fmt.v2ray.buildSingBoxOutboundStandardV2RayBean
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
-import io.nekohasekai.sagernet.fmt.wireguard.buildSingBoxOutboundWireguardBean
+import io.nekohasekai.sagernet.fmt.wireguard.buildSingBoxEndpointWireguardBean
 import io.nekohasekai.sagernet.ktx.isIpAddress
 import io.nekohasekai.sagernet.ktx.mkPort
 import io.nekohasekai.sagernet.utils.PackageCache
@@ -37,7 +38,6 @@ import moe.matsuri.nb4a.proxy.shadowtls.buildSingBoxOutboundShadowTLSBean
 import moe.matsuri.nb4a.utils.JavaUtil.gson
 import moe.matsuri.nb4a.utils.Util
 import moe.matsuri.nb4a.utils.listByLineOrComma
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 const val TAG_MIXED = "mixed-in"
 
@@ -67,7 +67,8 @@ fun buildConfig(
         val bean = proxy.requireBean() as ConfigBean
         if (bean.type == 0) {
             return ConfigBuildResult(
-                bean.config,
+                Libcore.migrateConfig(secureClashApiConfig(bean.config,
+                    if (!forTest && !forExport) DataStore::activateClashApi else null)),
                 listOf(),
                 proxy.id, //
                 mapOf(TAG_PROXY to listOf(proxy)), //
@@ -177,8 +178,9 @@ fun buildConfig(
         dns = DNSOptions().apply {
             servers = mutableListOf()
             rules = mutableListOf()
-            independent_cache = true
         }
+
+        endpoints = mutableListOf()
 
         fun autoDnsDomainStrategy(s: String): String? {
             if (s.isNotEmpty()) {
@@ -193,6 +195,9 @@ fun buildConfig(
             }
         }
 
+        val directDnsStrategy = autoDnsDomainStrategy(SingBoxOptionsUtil.domainStrategy("dns-direct"))
+        val remoteDnsStrategy = autoDnsDomainStrategy(SingBoxOptionsUtil.domainStrategy("dns-remote"))
+
         inbounds = mutableListOf()
 
         if (!forTest) {
@@ -204,23 +209,25 @@ fun buildConfig(
                     TunImplementation.SYSTEM -> "system"
                     else -> "mixed"
                 }
-                endpoint_independent_nat = true
+                _hack_config_map["udp_mapping"] = "endpoint_independent"
+                _hack_config_map["udp_filtering"] = "endpoint_independent"
                 mtu = DataStore.mtu
+                address = mutableListOf()
                 domain_strategy = genDomainStrategy(DataStore.resolveDestination)
                 sniff = needSniff
                 sniff_override_destination = needSniffOverride
                 when (ipv6Mode) {
                     IPv6Mode.DISABLE -> {
-                        inet4_address = listOf(VpnService.PRIVATE_VLAN4_CLIENT + "/28")
+                        address.add(VpnService.PRIVATE_VLAN4_CLIENT + "/28")
                     }
 
                     IPv6Mode.ONLY -> {
-                        inet6_address = listOf(VpnService.PRIVATE_VLAN6_CLIENT + "/126")
+                        address.add(VpnService.PRIVATE_VLAN6_CLIENT + "/126")
                     }
 
                     else -> {
-                        inet4_address = listOf(VpnService.PRIVATE_VLAN4_CLIENT + "/28")
-                        inet6_address = listOf(VpnService.PRIVATE_VLAN6_CLIENT + "/126")
+                        address.add(VpnService.PRIVATE_VLAN4_CLIENT + "/28")
+                        address.add(VpnService.PRIVATE_VLAN6_CLIENT + "/126")
                     }
                 }
             })
@@ -242,6 +249,10 @@ fun buildConfig(
             auto_detect_interface = true
             rules = mutableListOf()
             rule_set = mutableListOf()
+            _hack_config_map["default_domain_resolver"] = mapOf(
+                "server" to "dns-direct",
+                "strategy" to if (forTest) "as_is" else (directDnsStrategy ?: "as_is"),
+            )
         }
 
         // returns outbound tag
@@ -308,7 +319,7 @@ fun buildConfig(
                             outbound = tagOut
                         })
                     } else {
-                        pastOutbound._hack_config_map["detour"] = tagOut
+                        setChainDetour(pastOutbound, tagOut)
                     }
                 } else {
                     // index == 0 means last profile in chain / not chain
@@ -357,7 +368,7 @@ fun buildConfig(
                             buildSingBoxOutboundShadowsocksBean(bean)
 
                         is WireGuardBean ->
-                            buildSingBoxOutboundWireguardBean(bean)
+                            buildSingBoxEndpointWireguardBean(bean).apply { tag = tagOut }
 
                         is SSHBean ->
                             buildSingBoxOutboundSSHBean(bean)
@@ -396,8 +407,7 @@ fun buildConfig(
                             domainListDNSDirectForce.add("full:$serverAddress")
                         }
                     }
-                    _hack_config_map["domain_strategy"] =
-                        if (forTest) "" else defaultServerDomainStrategy
+                    configureOutboundResolver(this, defaultServerDomainStrategy, forTest)
 
                     _hack_config_map["tag"] = tagOut
 
@@ -449,7 +459,11 @@ fun buildConfig(
                     }
                 }
 
-                outbounds.add(currentOutbound)
+                if (currentOutbound is WireGuardEndpointOptions) {
+                    endpoints.add(currentOutbound)
+                } else {
+                    outbounds.add(currentOutbound)
+                }
                 chainOutbounds.add(currentOutbound)
                 pastOutbound = currentOutbound
                 pastEntity = proxyEntity
@@ -468,11 +482,12 @@ fun buildConfig(
             outbounds.add(0, Outbound_SelectorOptions().apply {
                 type = "selector"
                 tag = TAG_PROXY
+                route.final_ = TAG_PROXY
                 default_ = tagMap[proxy.id]
                 outbounds = tagMap.values.toList()
             })
         } else {
-            buildChain(0, proxy)
+            route.final_ = buildChain(0, proxy)
         }
         // build outbounds from route item
         extraProxies.forEach { (key, p) ->
@@ -553,23 +568,25 @@ fun buildConfig(
 
                 when (rule.outbound) {
                     -1L -> {
-                        userDNSRuleList += makeDnsRuleObj().apply { server = "dns-direct" }
+                        userDNSRuleList += makeDnsRuleObj().apply {
+                            routeDnsRule(this, "dns-direct", directDnsStrategy)
+                        }
                     }
 
                     0L -> {
                         if (useFakeDns) userDNSRuleList += makeDnsRuleObj().apply {
-                            server = "dns-fake"
+                            routeDnsRule(this, "dns-fake", fakeDnsStrategy(ipv6Mode == IPv6Mode.ONLY))
                             inbound = listOf("tun-in")
                         }
                         userDNSRuleList += makeDnsRuleObj().apply {
-                            server = "dns-remote"
+                            routeDnsRule(this, "dns-remote", remoteDnsStrategy)
                         }
                     }
 
                     -2L -> {
                         userDNSRuleList += makeDnsRuleObj().apply {
-                            server = "dns-block"
-                            disable_cache = true
+                            action = "predefined"
+                            rcode = "NOERROR"
                         }
                     }
                 }
@@ -631,49 +648,23 @@ fun buildConfig(
         }
 
         remoteDns.forEach {
-            var address = it
-            if (address.contains("://")) {
-                address = address.substringAfter("://")
-            }
-            "https://$address".toHttpUrlOrNull()?.apply {
-                if (!host.isIpAddress()) {
-                    domainListDNSDirectForce.add("full:$host")
-                }
+            val host = runCatching { parseDnsServerAddress(it).server }.getOrNull()
+            if (host != null && !host.isIpAddress()) {
+                domainListDNSDirectForce.add("full:$host")
             }
         }
 
-        dns.servers.add(DNSServerOptions().apply {
-            address = "rcode://success"
-            tag = "dns-block"
-        })
-
-        dns.servers.add(DNSServerOptions().apply {
-            address = "local"
-            tag = "dns-local"
-            detour = TAG_DIRECT
-        })
-
-        directDNS.firstOrNull().let {
-            dns.servers.add(DNSServerOptions().apply {
-                address = it ?: throw Exception("No direct DNS, check your settings!")
-                tag = "dns-direct"
-                detour = TAG_DIRECT
-                address_resolver = "dns-local"
-                strategy = autoDnsDomainStrategy(SingBoxOptionsUtil.domainStrategy(tag))
-            })
-        }
-
-        remoteDns.firstOrNull().let {
-            // Always use direct DNS for urlTest
-            if (!forTest) dns.servers.add(DNSServerOptions().apply {
-                address = it ?: throw Exception("No remote DNS, check your settings!")
-                tag = "dns-remote"
-                address_resolver = "dns-direct"
-                strategy = autoDnsDomainStrategy(SingBoxOptionsUtil.domainStrategy(tag))
-            })
-        }
+        dns.servers.addAll(buildDnsServers(
+            directDNS.firstOrNull() ?: error("No direct DNS, check your settings!"),
+            if (forTest) null else remoteDns.firstOrNull() ?: error("No remote DNS, check your settings!"),
+            TAG_PROXY,
+        ))
 
         dns.final_ = if (forTest) "dns-direct" else "dns-remote"
+        // Lookup preferences remain explicit; only-mode filtering is expanded into
+        // modern query-type guards after all user overrides have been merged.
+        dns.strategy = dnsLookupPreference(if (forTest) directDnsStrategy else remoteDnsStrategy)
+        dns._hack_config_map["_neko_final_dns_policy"] = if (forTest) directDnsStrategy else remoteDnsStrategy
 
         // dns object user rules
         if (enableDnsRouting) {
@@ -708,32 +699,23 @@ fun buildConfig(
             })
             // FakeDNS obj
             if (useFakeDns) {
-                dns.fakeip = DNSFakeIPOptions().apply {
-                    enabled = true
+                dns.servers.add(DNSServerOptions().apply {
+                    type = "fakeip"
+                    tag = "dns-fake"
                     inet4_range = "198.18.0.0/15"
                     inet6_range = "fc00::/18"
-                }
-                dns.servers.add(DNSServerOptions().apply {
-                    address = "fakeip"
-                    tag = "dns-fake"
-                    strategy = "ipv4_only"
                 })
                 dns.rules.add(DNSRule_DefaultOptions().apply {
                     inbound = listOf("tun-in")
-                    server = "dns-fake"
+                    routeDnsRule(this, "dns-fake", fakeDnsStrategy(ipv6Mode == IPv6Mode.ONLY))
                     disable_cache = true
                 })
             }
-            // avoid loopback
-            dns.rules.add(0, DNSRule_DefaultOptions().apply {
-                outbound = mutableListOf("any")
-                server = "dns-direct"
-            })
             // force bypass (always top DNS rule)
             if (domainListDNSDirectForce.isNotEmpty()) {
                 dns.rules.add(0, DNSRule_DefaultOptions().apply {
                     makeSingBoxRule(domainListDNSDirectForce.toHashSet().toList())
-                    server = "dns-direct"
+                    routeDnsRule(this, "dns-direct", directDnsStrategy)
                 })
             }
         }
@@ -742,8 +724,10 @@ fun buildConfig(
     }.let {
         val configMap = it.asMap()
         Util.mergeJSON(configMap, proxy.requireBean().customConfigJson)
+        finalizeGeneratedConfig(configMap)
         ConfigBuildResult(
-            gson.toJson(configMap),
+            Libcore.migrateConfig(secureClashApiConfig(gson.toJson(configMap),
+                if (!forTest && !forExport) DataStore::activateClashApi else null)),
             externalIndexMap,
             proxy.id,
             trafficMap,

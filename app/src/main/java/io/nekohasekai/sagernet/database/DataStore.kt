@@ -86,6 +86,13 @@ object DataStore : OnPreferenceDataStoreChangeListener {
 
     var appTLSVersion by configurationStore.string(Key.APP_TLS_VERSION)
     var enableClashAPI by configurationStore.boolean(Key.ENABLE_CLASH_API)
+    // Kept outside Room/settings, under Android's private no-backup directory.
+    private val clashApiCredentials by lazy {
+        moe.matsuri.nb4a.utils.ClashApiSecretStore(io.nekohasekai.sagernet.SagerNet.application.noBackupFilesDir)
+    }
+    internal fun activateClashApi(controller: String, secret: String) = clashApiCredentials.activate(controller, secret)
+    internal fun activeClashApi() = clashApiCredentials.active()
+
     var showBottomBar by configurationStore.boolean(Key.SHOW_BOTTOM_BAR)
 
     var allowInsecureOnRequest by configurationStore.boolean(Key.ALLOW_INSECURE_ON_REQUEST)

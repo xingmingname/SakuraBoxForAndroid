@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_confirm_title">Allow VPN shortcut?</string>
+    <string name="shortcut_confirm_allow">Allow once</string>
+    <string name="shortcut_confirm_toggle">Allow this request to start or stop SakuraBox? It may have been opened by another app. Cancel if you did not request it.</string>
+    <string name="shortcut_confirm_enable">Allow this request to start SakuraBox? It may have been opened by another app. Cancel if you did not request it.</string>
+    <string name="shortcut_confirm_disable">Allow this request to stop SakuraBox? It may have been opened by another app. Cancel if you did not request it.</string>
+    <string name="shortcut_confirm_profile">Allow this request to select “%1$s” (ID %2$d) and start or switch SakuraBox? If this profile is already active, it will stop instead. Another app may have opened this request. Cancel if unexpected.</string>
+</resources>

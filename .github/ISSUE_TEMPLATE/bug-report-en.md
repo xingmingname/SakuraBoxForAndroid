@@ -15,8 +15,8 @@ Actual behavior:
 
 ## How to reproduce
 
-Provide helpful screenshots, videos, text descriptions, subscription links, etc.
+Provide reproduction steps and synthetic examples. Never post subscription links, passwords, tokens, private keys, or private server addresses.
 
 ## log
 
-If you have logs, please upload them. Please see the detailed steps for exporting logs in the documentation.
+Only attach minimal redacted logs after reviewing them for sensitive data.

@@ -10,7 +10,6 @@ import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.zip.Deflater
-import java.util.zip.Inflater
 
 object Util {
 
@@ -61,6 +60,7 @@ object Util {
     }
 
     fun b64Decode(b: String): ByteArray {
+        ImportLimits.checkEncodedLength(b)
         var ret: ByteArray? = null
 
         // padding 自动处理，不用理
@@ -77,7 +77,10 @@ object Util {
                 ret = Base64.decode(str, flag)
             } catch (_: Exception) {
             }
-            if (ret != null) return ret
+            if (ret != null) {
+                if (ret.size > ImportLimits.MAX_TEXT_BYTES) throw ImportLimits.InputLimitException("Decoded configuration exceeds 32 MiB limit")
+                return ret
+            }
         }
 
         throw IllegalStateException("Cannot decode base64")
@@ -96,25 +99,7 @@ object Util {
         return output.copyOfRange(0, compressedDataLength)
     }
 
-    fun zlibDecompress(input: ByteArray): ByteArray {
-        val inflater = Inflater()
-        val outputStream = ByteArrayOutputStream()
-
-        return outputStream.use {
-            val buffer = ByteArray(1024)
-
-            inflater.setInput(input)
-
-            var count = -1
-            while (count != 0) {
-                count = inflater.inflate(buffer)
-                outputStream.write(buffer, 0, count)
-            }
-
-            inflater.end()
-            outputStream.toByteArray()
-        }
-    }
+    fun zlibDecompress(input: ByteArray): ByteArray = ImportLimits.inflate(input)
 
     fun map2StringMap(m: Map<*, *>): MutableMap<String, Any?> {
         val o = mutableMapOf<String, Any?>()

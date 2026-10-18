@@ -79,7 +79,9 @@ class BaseService {
         var closeReceiverRegistered = false
 
         val binder = Binder(this)
-        var connectingJob: Job? = null
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        val startup = ServiceStartup(scope)
+        val connectingJob: Job? get() = startup.job
 
         fun changeState(s: State, msg: String? = null) {
             if (state == s && msg == null) return
@@ -243,8 +245,8 @@ class BaseService {
 
             data.changeState(State.Stopping)
 
-            runOnMainDispatcher {
-                data.connectingJob?.cancelAndJoin() // ensure stop connecting first
+            data.scope.launch {
+                data.startup.cancelAndJoin() // ensure stop connecting first
                 // we use a coroutineScope here to allow clean-up in parallel
                 coroutineScope {
                     killProcesses()
@@ -356,13 +358,15 @@ class BaseService {
             }
 
             data.changeState(State.Connecting)
-            runOnMainDispatcher {
+            data.startup.launch {
                 try {
                     data.notification = createNotification(ServiceNotification.genTitle(profile))
+                    data.notification!!.initialize()
 
                     Executable.killAll()    // clean up old processes
                     preInit()
                     proxy.init()
+                    currentCoroutineContext().ensureActive()
                     DataStore.currentProfile = profile.id
 
                     proxy.processes = GuardedProcessPool {
@@ -371,6 +375,7 @@ class BaseService {
                     }
 
                     startProcesses()
+                    currentCoroutineContext().ensureActive()
                     data.changeState(State.Connected)
 
                     lateInit()
@@ -392,11 +397,27 @@ class BaseService {
                     stopRunner(
                         false, "${getString(R.string.service_failed)}: ${exc.readableMessage}"
                     )
-                } finally {
-                    data.connectingJob = null
                 }
             }
             return Service.START_NOT_STICKY
+        }
+
+        fun destroyService() {
+            data.scope.cancel()
+            try {
+                killProcesses()
+            } finally {
+                data.proxy = null
+                data.notification?.destroy()
+                data.notification = null
+                if (data.closeReceiverRegistered) {
+                    (this as Service).unregisterReceiver(data.receiver)
+                    data.closeReceiverRegistered = false
+                }
+                data.binder.close()
+                if (DataStore.baseService === this) DataStore.baseService = null
+                if (DataStore.vpnService === this) DataStore.vpnService = null
+            }
         }
     }
 

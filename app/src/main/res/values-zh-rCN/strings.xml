@@ -225,8 +225,6 @@
     <string name="file_manager_missing">您的设备缺少 Android 标准文件选择器, 请安装一个, 如 Material Files.</string>
     <string name="need_reload">重载代理服务以应用修改</string>
     <string name="theme">主题颜色</string>
-    <string name="donate">捐款</string>
-    <string name="donate_info">猫猫很可爱 请给猫猫钱</string>
     <string name="extra_headers">附加标头</string>
     <string name="username">用户名</string>
     <string name="key_opt">密码 (可选)</string>
@@ -240,7 +238,6 @@
     <string name="bypass_lan_in_core">在核心中绕过 LAN</string>
     <string name="ignore_battery_optimizations">忽略电池优化</string>
     <string name="ignore_battery_optimizations_sum">移除一些限制</string>
-    <string name="document">文档</string>
     <string name="early_data_header_name">前置数据标头</string>
     <string name="config_settings">配置设置</string>
     <string name="custom_config">自定义配置</string>
@@ -456,7 +453,6 @@
     <string name="enable_clash_api_summary">在 127.0.0.1:9090 提供 clash api 和 yacd 仪表板</string>
     <string name="xtls_flow">Flow（VLESS 子协议）</string>
     <string name="log_level">日志级别</string>
-    <string name="ads">推广</string>
     <string name="need_restart">重新启动应用程序以应用更改</string>
     <string name="use_selector">启用 selector （免重载切换节点）</string>
     <string name="front_proxy">前置代理</string>
@@ -488,7 +484,15 @@
     <string name="global_allow_insecure">总是跳过 TLS 证书验证</string>
     <string name="network_change_reset_connections">当网络发生变化时重置出站连接</string>
     <string name="wake_reset_connections">当设备从睡眠状态唤醒时重置出站连接</string>
-    <string name="preview_version_hint">本应用为预览版，可能存在诸多问题。若您不愿参与测试，请前往GitHub下载正式发布版本！</string>
+    <string name="preview_version_hint">本应用为预览版，可能存在问题，请谨慎使用。</string>
+    <string name="feature_not_available_yet">暂未开放</string>
+    <string name="update_no_release">此通道尚无已发布版本。</string>
+    <string name="update_error_network">检查更新失败：网络请求失败。</string>
+    <string name="update_error_timeout">检查更新超时。</string>
+    <string name="update_error_api">GitHub API 错误（HTTP %1$d），请稍后重试。</string>
+    <string name="update_error_json">检查更新失败：版本响应格式无效。</string>
+    <string name="update_error_version">检查更新失败：无法识别版本标签。</string>
+    <string name="update_error_incomplete">检查更新失败：版本分页结果不完整。</string>
     <string name="check_update_preview">检查预览版更新</string>
     <string name="check_update_release">检查正式版更新</string>
     <string name="update_dialog_title">发现新版本</string>
@@ -499,4 +503,9 @@
     <string name="minimize">最小化</string>
     <string name="app_list_permission_denied">无法读取已安装的应用。\n这通常是由于系统限制了应用的读取权限（例如某些中国厂商系统）。\n请在系统设置中授予权限。</string>
     <string name="open_app_settings">打开系统设置</string>
+
+    <string name="export_internal_clipboard">SakuraBox 内部配置：复制</string>
+    <string name="export_internal_file">SakuraBox 内部配置：保存文件</string>
+    <string name="export_official_clipboard">官方 sing-box 配置：复制</string>
+    <string name="export_official_file">官方 sing-box 配置：保存文件</string>
 </resources>

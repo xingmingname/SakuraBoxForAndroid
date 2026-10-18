@@ -87,38 +87,35 @@ class VpnService : BaseVpnService(),
     }
 
     fun startVpn(tunOptionsJson: String, tunPlatformOptionsJson: String): Int {
-//        Logs.d(tunOptionsJson)
-//        Logs.d(tunPlatformOptionsJson)
-//        val tunOptions = JSONObject(tunOptionsJson)
-
-        // address & route & MTU ...... use NB4A GUI config
+        val tun = VpnTunPlan.parse(tunOptionsJson)
         val builder = Builder().setConfigureIntent(SagerNet.configureIntent(this))
             .setSession(getString(R.string.app_name))
-            .setMtu(DataStore.mtu)
-        val ipv6Mode = DataStore.ipv6Mode
+            .setMtu(tun.mtu)
 
         // address
-        builder.addAddress(PRIVATE_VLAN4_CLIENT, 30)
-        if (ipv6Mode != IPv6Mode.DISABLE) {
-            builder.addAddress(PRIVATE_VLAN6_CLIENT, 126)
+        for (address in tun.addresses) {
+            val parts = address.split('/')
+            builder.addAddress(parts[0], parts[1].toInt())
         }
-        builder.addDnsServer(PRIVATE_VLAN4_ROUTER)
+        val dnsServers = tun.dnsServers()
+        dnsServers.forEach { builder.addDnsServer(it) }
 
         // route
         if (DataStore.bypassLan) {
-            resources.getStringArray(R.array.bypass_private_route).forEach {
+            if (tun.hasIpv4) resources.getStringArray(R.array.bypass_private_route).forEach {
                 val subnet = Subnet.fromString(it)!!
                 builder.addRoute(subnet.address.hostAddress!!, subnet.prefixSize)
             }
-            builder.addRoute(PRIVATE_VLAN4_ROUTER, 32)
-            builder.addRoute(FAKEDNS_VLAN4_CLIENT, 15)
+            dnsServers.forEach { builder.addRoute(it, if (':' in it) 128 else 32) }
+            if (tun.hasIpv4) builder.addRoute(FAKEDNS_VLAN4_CLIENT, 15)
             // https://issuetracker.google.com/issues/149636790
-            if (ipv6Mode != IPv6Mode.DISABLE) {
+            if (tun.hasIpv6) {
                 builder.addRoute("2000::", 3)
+                if (DataStore.enableFakeDns) builder.addRoute("fc00::", 18)
             }
         } else {
-            builder.addRoute("0.0.0.0", 0)
-            if (ipv6Mode != IPv6Mode.DISABLE) {
+            if (tun.hasIpv4) builder.addRoute("0.0.0.0", 0)
+            if (tun.hasIpv6) {
                 builder.addRoute("::", 0)
             }
         }
@@ -211,8 +208,7 @@ class VpnService : BaseVpnService(),
     override fun onRevoke() = stopRunner()
 
     override fun onDestroy() {
-        DataStore.vpnService = null
+        destroyService()
         super.onDestroy()
-        data.binder.close()
     }
 }

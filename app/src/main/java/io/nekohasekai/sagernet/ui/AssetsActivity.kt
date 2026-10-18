@@ -1,5 +1,8 @@
 package io.nekohasekai.sagernet.ui
 
+import android.util.AtomicFile
+import moe.matsuri.nb4a.utils.AssetPaths
+
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.text.format.DateFormat
@@ -21,7 +24,6 @@ import libcore.Libcore
 import moe.matsuri.nb4a.utils.Util
 import org.json.JSONObject
 import java.io.File
-import java.io.FileWriter
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -110,19 +112,37 @@ class AssetsActivity : ThemedActivity() {
             }
             val filesDir = getExternalFilesDir(null) ?: filesDir
 
+            val destination = try {
+                AssetPaths.destination(filesDir, fileName)
+            } catch (e: java.io.IOException) {
+                alert(getString(R.string.route_not_asset, fileName)).show()
+                return@registerForActivityResult
+            }
+
             runOnDefaultDispatcher {
-                val outFile = File(filesDir, fileName).apply {
+                val outFile = destination.apply {
                     parentFile?.mkdirs()
                 }
 
-                contentResolver.openInputStream(file)?.use(outFile.outputStream())
+                val atomic = AtomicFile(outFile)
+                AssetPaths.destination(filesDir, fileName + ".new")
+                AssetPaths.destination(filesDir, fileName + ".bak")
+                val input = contentResolver.openInputStream(file) ?: error("Cannot open asset input")
+                input.use {
+                    val output = atomic.startWrite()
+                    try {
+                        it.copyTo(output)
+                        atomic.finishWrite(output)
+                    } catch (e: Exception) {
+                        atomic.failWrite(output)
+                        throw e
+                    }
+                }
 
-                File(outFile.parentFile, outFile.nameWithoutExtension + ".version.txt").apply {
+                AssetPaths.destination(filesDir, outFile.nameWithoutExtension + ".version.txt").apply {
                     if (isFile) delete()
                     createNewFile()
-                    val fw = FileWriter(this)
-                    fw.write("Custom")
-                    fw.close()
+                    writer().use { it.write("Custom") }
                 }
 
                 adapter.reloadAssets()

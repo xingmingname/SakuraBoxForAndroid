@@ -2,6 +2,7 @@ package libcore
 
 import (
 	"fmt"
+	"io"
 	"libcore/device"
 	"os"
 	"path/filepath"
@@ -22,7 +23,7 @@ import (
 var resourcePaths []string
 
 func NekoLogPrintln(s string) {
-	log.Println(s)
+	log.Println(redactLog(s))
 }
 
 func NekoLogClear() {
@@ -63,6 +64,7 @@ func InitCore(process, cachePath, internalAssets, externalAssets string,
 	neko_log.LogWriterDisable = !logEnable
 	neko_log.TruncateOnStart = isBgProcess
 	neko_log.SetupLog(int(maxLogSizeKb)*1024, filepath.Join(cachePath, "neko.log"))
+	log.SetOutput(redactingLogWriter{neko_log.LogWriter})
 
 	// nekoutils
 	nekoutils.Selector_OnProxySelected = intfNB4A.Selector_OnProxySelected
@@ -108,13 +110,15 @@ func sendFdToProtect(fd int, path string) error {
 		return fmt.Errorf("failed to send: %w", err)
 	}
 
-	dummy := []byte{1}
-	n, err := unix.Read(socketFd, dummy)
-	if err != nil {
-		return fmt.Errorf("failed to receive: %w", err)
+	return readProtectAck(protectSocketReader{socketFd})
+}
+
+type protectSocketReader struct{ fd int }
+
+func (r protectSocketReader) Read(p []byte) (int, error) {
+	n, err := unix.Read(r.fd, p)
+	if err == nil && n == 0 {
+		err = io.EOF
 	}
-	if n != 1 {
-		return fmt.Errorf("socket closed unexpectedly")
-	}
-	return nil
+	return n, err
 }

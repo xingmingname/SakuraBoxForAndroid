@@ -1,5 +1,7 @@
 package io.nekohasekai.sagernet.ui
 
+import moe.matsuri.nb4a.utils.ImportLimits
+
 import android.Manifest.permission.POST_NOTIFICATIONS
 import android.annotation.SuppressLint
 import android.content.Intent
@@ -41,7 +43,6 @@ import io.nekohasekai.sagernet.fmt.PluginEntry
 import io.nekohasekai.sagernet.group.GroupInterfaceAdapter
 import io.nekohasekai.sagernet.group.GroupUpdater
 import io.nekohasekai.sagernet.ktx.alert
-import io.nekohasekai.sagernet.ktx.isPlay
 import io.nekohasekai.sagernet.ktx.isPreview
 import io.nekohasekai.sagernet.ktx.launchCustomTab
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
@@ -60,6 +61,7 @@ class MainActivity : ThemedActivity(),
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        io.nekohasekai.sagernet.shortcut.ShortcutIntents.upgradePinnedShortcuts(this)
 
         binding = LayoutMainBinding.inflate(layoutInflater)
         binding.fab.initProgress(binding.fabProgress)
@@ -129,7 +131,6 @@ class MainActivity : ThemedActivity(),
     fun refreshNavMenu(clashApi: Boolean) {
         if (::navigation.isInitialized) {
             navigation.menu.findItem(R.id.nav_traffic)?.isVisible = clashApi
-            navigation.menu.findItem(R.id.nav_tuiguang)?.isVisible = !isPlay
         }
     }
 
@@ -155,6 +156,11 @@ class MainActivity : ThemedActivity(),
     }
 
     suspend fun importSubscription(uri: Uri) {
+        try { ImportLimits.checkText(uri.toString()) }
+        catch (error: ImportLimits.InputLimitException) {
+            onMainDispatcher { alert(error.readableMessage).show() }
+            return
+        }
         val group: ProxyGroup
 
         val url = uri.getQueryParameter("url")
@@ -214,6 +220,7 @@ class MainActivity : ThemedActivity(),
 
     suspend fun importProfile(uri: Uri) {
         val profile = try {
+            ImportLimits.checkText(uri.toString())
             parseProxies(uri.toString()).getOrNull(0) ?: error(getString(R.string.no_proxies_found))
         } catch (e: Exception) {
             onMainDispatcher {
@@ -270,7 +277,7 @@ class MainActivity : ThemedActivity(),
             }
             .setNeutralButton(android.R.string.cancel, null)
             .setNeutralButton(R.string.action_learn_more) { _, _ ->
-                launchCustomTab("https://matsuridayo.github.io/nb4a-plugin/")
+                snackbar(R.string.feature_not_available_yet).show()
             }
             .show()
     }
@@ -340,16 +347,7 @@ class MainActivity : ThemedActivity(),
             R.id.nav_traffic -> displayFragment(WebviewFragment())
             R.id.nav_tools -> displayFragment(ToolsFragment())
             R.id.nav_logcat -> displayFragment(LogcatFragment())
-            R.id.nav_faq -> {
-                launchCustomTab("https://matsuridayo.github.io/")
-                return false
-            }
-
             R.id.nav_about -> displayFragment(AboutFragment())
-            R.id.nav_tuiguang -> {
-                launchCustomTab("https://neko-box.pages.dev/喵")
-                return false
-            }
 
             else -> return false
         }
@@ -363,6 +361,7 @@ class MainActivity : ThemedActivity(),
         animate: Boolean = false,
     ) {
         DataStore.serviceState = state
+        (supportFragmentManager.findFragmentById(R.id.fragment_holder) as? WebviewFragment)?.refreshPanel()
 
         binding.fab.changeState(state, DataStore.serviceState, animate)
         binding.stats.changeState(state)

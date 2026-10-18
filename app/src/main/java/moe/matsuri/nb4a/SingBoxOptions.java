@@ -109,6 +109,8 @@ public class SingBoxOptions {
 
         public NTPOptions ntp;
 
+        public List<SingBoxOption> endpoints;
+
         public List<Inbound> inbounds;
 
         public List<SingBoxOption> outbounds;
@@ -312,8 +314,6 @@ public class SingBoxOptions {
 
         public Boolean reverse_mapping;
 
-        public DNSFakeIPOptions fakeip;
-
         // Generate note: nested type DNSClientOptions
         public String strategy;
 
@@ -329,19 +329,26 @@ public class SingBoxOptions {
 
     public static class DNSServerOptions extends SingBoxOption {
 
+        public String type;
+
         public String tag;
 
-        public String address;
+        public String server;
 
-        public String address_resolver;
+        public Integer server_port;
 
-        public String address_strategy;
+        public String path;
 
-        public Long address_fallback_delay;
+        public String domain_resolver;
 
-        public String strategy;
+        @SerializedName("interface")
+        public String interfaceName;
 
         public String detour;
+
+        public String inet4_range;
+
+        public String inet6_range;
 
     }
 
@@ -354,16 +361,6 @@ public class SingBoxOptions {
         public Boolean disable_expire;
 
         public Boolean independent_cache;
-
-    }
-
-    public static class DNSFakeIPOptions extends SingBoxOption {
-
-        public Boolean enabled;
-
-        public String inet4_range;
-
-        public String inet6_range;
 
     }
 
@@ -2303,6 +2300,9 @@ public class SingBoxOptions {
 
         public Integer mtu;
 
+        // sing-box 1.14+: merged IPv4/IPv6 tunnel addresses.
+        public List<String> address;
+
         // Generate note: Listable
         public List<String> inet4_address;
 
@@ -2802,6 +2802,8 @@ public class SingBoxOptions {
         public String interface_name;
 
         public Integer mtu;
+
+        public List<String> address;
 
         // Generate note: Listable
         public List<String> inet4_address;
@@ -3916,6 +3918,31 @@ public class SingBoxOptions {
 
     }
 
+    public static class WireGuardEndpointOptions extends SingBoxOption {
+
+        public String type;
+        public String tag;
+        public String name;
+        public Integer mtu;
+        public List<String> address;
+        public String private_key;
+        public List<WireGuardPeerOptions> peers;
+        public String domain_strategy;
+        public String detour;
+        public String bind_interface;
+    }
+
+    public static class WireGuardPeerOptions extends SingBoxOption {
+
+        public String address;
+        public Integer port;
+        public String public_key;
+        public String pre_shared_key;
+        public List<String> allowed_ips;
+        public Integer persistent_keepalive_interval;
+        public String reserved;
+    }
+
     public static class Outbound_HysteriaOptions extends Outbound {
 
         // Generate note: nested type DialerOptions
@@ -4531,6 +4558,12 @@ public class SingBoxOptions {
         public String server;
 
         public Boolean disable_cache;
+
+        public String strategy;
+
+        public String action;
+
+        public String rcode;
 
         public Integer rewrite_ttl;
 

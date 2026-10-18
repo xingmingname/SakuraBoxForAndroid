@@ -24,7 +24,6 @@
 <string name="add_profile">Добавить профиль</string>
 <string name="add_profile_methods_manual_settings">Ручные настройки</string>
 <string name="add_profile_methods_scan_qr_code">Отсканировать QR-код</string>
-<string name="ads">Реклама</string>
 <string name="allow_access">Разрешить подключения из локальной сети</string>
 <string name="allow_access_sum">Привязать входящие серверы к 0.0.0.0</string>
 <string name="allow_insecure">Разрешить небезопасное подключение</string>
@@ -35,8 +34,8 @@
 <string name="always_show_address">Всегда показывать адрес</string>
 <string name="always_show_address_sum">Всегда отображать адрес сервера на карте конфигурации</string>
 <string name="app_desc">Универсальный набор инструментов прокси для Android, написанный на Kotlin.</string>
-<string name="app_name">NekoBox</string>
-<string name="app_name_long">NekoBox для Android</string>
+<string name="app_name">SakuraBox</string>
+<string name="app_name_long">SakuraBox для Android</string>
 <string name="app_tls_version">Минимальная версия TLS протокола</string>
 <string name="app_version">Версия</string>
 <string name="append_http_proxy">Добавить HTTP-прокси к VPN</string>
@@ -126,13 +125,10 @@
 <string name="disable">Отключить</string>
 <string name="dns_hosts">Перезапись домена</string>
 <string name="dns_routing_message">Разрешить домены в обходных маршрутах с помощью Direct DNS. Помните о потенциальных утечках DNS</string>
-<string name="document">Документы</string>
 <string name="domain_strategy">Правило разрешения доменов</string>
 <string name="domain_strategy_for_direct">Правило домена для Прямого</string>
 <string name="domain_strategy_for_remote">Правило домена для Удаленного</string>
 <string name="domain_strategy_for_server">Правило домена для Адреса сервера</string>
-<string name="donate">Пожертвовать</string>
-<string name="donate_info">Я люблю деньги</string>
 <string name="download">Скачать</string>
 <string name="early_data_header_name">Имя заголовка ранних данных</string>
 <string name="ech_config">Конфигурация ECH</string>
@@ -323,7 +319,8 @@
 <string name="port_transproxy">Транспрокси-порт</string>
 <string name="prefer">Предпочитать</string>
 <string name="preference_copied">Текст "%1$s" скопирован в буфер обмена</string>
-<string name="preview_version_hint">Это приложение является предварительной версией и может содержать множество проблем. Если вы не хотите тестировать его, скачайте релизную версию с GitHub!</string>
+<string name="preview_version_hint">Это предварительная версия приложения, которая может содержать ошибки. Используйте её с осторожностью.</string>
+<string name="feature_not_available_yet">Пока недоступно</string>
 <string name="profile_config">Конфигурация профиля</string>
 <string name="profile_empty">Пожалуйста, выберите профиль</string>
 <string name="profile_import">Импортировать профиль</string>

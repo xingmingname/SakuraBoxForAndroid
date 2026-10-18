@@ -262,13 +262,16 @@ data class ProxyEntity(
         }
     }
 
-    fun exportConfig(): Pair<String, String> {
-        var name = "${requireBean().displayName()}.json"
+    fun exportConfig(official: Boolean = false): Pair<String, String> {
+        var name = "${requireBean().displayName()}.${if (official) "sing-box" else "nekobox"}.json"
 
         return with(requireBean()) {
             StringBuilder().apply {
                 val config = buildConfig(this@ProxyEntity, forExport = true)
-                append(config.config)
+                if (official && config.externalIndex.any { it.chain.isNotEmpty() }) {
+                    error("Official sing-box export cannot include external plugin configurations; use SakuraBox internal export")
+                }
+                append(formatExportJson(if (official) libcore.Libcore.exportPortableConfig(config.config) else config.config))
 
                 if (!config.externalIndex.all { it.chain.isEmpty() }) {
                     name = "profiles.txt"
@@ -279,22 +282,22 @@ data class ProxyEntity(
                         when (val bean = profile.requireBean()) {
                             is TrojanGoBean -> {
                                 append("\n\n")
-                                append(bean.buildTrojanGoConfig(port))
+                                append(formatExportJson(bean.buildTrojanGoConfig(port)))
                             }
 
                             is MieruBean -> {
                                 append("\n\n")
-                                append(bean.buildMieruConfig(port))
+                                append(formatExportJson(bean.buildMieruConfig(port)))
                             }
 
                             is NaiveBean -> {
                                 append("\n\n")
-                                append(bean.buildNaiveConfig(port))
+                                append(formatExportJson(bean.buildNaiveConfig(port)))
                             }
 
                             is HysteriaBean -> {
                                 append("\n\n")
-                                append(bean.buildHysteria1Config(port, null))
+                                append(formatExportJson(bean.buildHysteria1Config(port, null)))
                             }
                         }
                     }

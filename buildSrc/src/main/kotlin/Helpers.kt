@@ -94,7 +94,7 @@ fun Project.setupCommon() {
                     }
                 }
                 getByName("debug") {
-                    applicationIdSuffix = "debug"
+                    applicationIdSuffix = ".debug"
                     debuggable(true)
                     jniDebuggable(true)
                 }
@@ -191,19 +191,11 @@ fun Project.setupApp() {
         }
 
         applicationVariants.all {
+            val variant = this
             outputs.all {
                 this as BaseVariantOutputImpl
-                val isPreview = outputFileName.contains("-preview")
-                outputFileName = if (isPreview) {
-                    outputFileName.replace(
-                        project.name,
-                        "NekoBox-" + requireMetadata().getProperty("PRE_VERSION_NAME")
-                    ).replace("-preview", "")
-                } else {
-                    outputFileName.replace(project.name, "NekoBox-$versionName")
-                        .replace("-release", "")
-                        .replace("-oss", "")
-                }
+                val abi = getFilter(com.android.build.OutputFile.ABI) ?: "universal"
+                outputFileName = "SakuraBox-${variant.versionName}-$abi-${variant.buildType.name}.apk"
             }
         }
 

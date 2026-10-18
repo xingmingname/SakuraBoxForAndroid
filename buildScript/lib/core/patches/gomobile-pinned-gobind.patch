@@ -1,0 +1,21 @@
+diff --git a/cmd/gomobile/init.go b/cmd/gomobile/init.go
+index be4eaea..b52cbe2 100644
+--- a/cmd/gomobile/init.go
++++ b/cmd/gomobile/init.go
+@@ -78,9 +78,13 @@ func runInit(cmd *command) error {
+ 		removeAll(tmpdir)
+ 	}()
+ 
+-	// Make sure gobind is up to date.
+-	if err := goInstall([]string{"golang.org/x/mobile/cmd/gobind@latest"}, nil); err != nil {
+-		return err
++	// Respect an explicitly selected gobind binary. The NekoBox build pins its
++	// gomobile fork and companion gobind, so fetching @latest here would make
++	// bindings nondeterministic and may select a newer Go toolchain.
++	if os.Getenv("GOBIND") == "" {
++		if err := goInstall([]string{"golang.org/x/mobile/cmd/gobind@latest"}, nil); err != nil {
++			return err
++		}
+ 	}
+ 
+ 	if buildN {

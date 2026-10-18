@@ -1,6 +1,7 @@
 package moe.matsuri.nb4a.net
 
 import android.net.DnsResolver
+import android.net.Network
 import android.os.Build
 import android.os.CancellationSignal
 import android.system.ErrnoException
@@ -15,21 +16,36 @@ import libcore.LocalDNSTransport
 import java.net.InetAddress
 import java.net.UnknownHostException
 
-object LocalResolverImpl : LocalDNSTransport {
+open class NetworkLocalResolver(
+    private val networkProvider: () -> Network?,
+    private val allowDefaultFallback: Boolean = true,
+) : LocalDNSTransport {
 
     // new local
 
-    private const val RCODE_NXDOMAIN = 3
+    private val RCODE_NXDOMAIN = 3
 
     override fun raw(): Boolean {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
     }
 
     override fun networkHandle(): Long {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            return SagerNet.underlyingNetwork?.networkHandle ?: 0
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return networkProvider()?.networkHandle ?: 0
         }
-        return 0
+        return networkProvider()?.hashCode()?.toLong() ?: 0
+    }
+
+    override fun dnsServers(interfaceName: String): String {
+        val network = networkProvider() ?: error("No underlying network for DHCP DNS")
+        val properties = SagerNet.connectivity.getLinkProperties(network)
+            ?: error("No link properties for DHCP DNS")
+        require(interfaceName.isBlank() || properties.interfaceName == interfaceName) {
+            "DHCP DNS interface '$interfaceName' is not the current underlying interface '${properties.interfaceName}'"
+        }
+        val servers = properties.dnsServers.mapNotNull { it.hostAddress }
+        require(servers.isNotEmpty()) { "The underlying network has no provisioned DNS servers" }
+        return servers.joinToString("\n")
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
@@ -54,7 +70,7 @@ object LocalResolverImpl : LocalDNSTransport {
         }
 
         DnsResolver.getInstance().rawQuery(
-            SagerNet.underlyingNetwork,
+            networkProvider(),
             message,
             DnsResolver.FLAG_NO_RETRY,
             Dispatchers.IO.asExecutor(),
@@ -105,7 +121,7 @@ object LocalResolverImpl : LocalDNSTransport {
             }
             if (type != null) {
                 DnsResolver.getInstance().query(
-                    SagerNet.underlyingNetwork,
+                    networkProvider(),
                     domain,
                     type,
                     DnsResolver.FLAG_NO_RETRY,
@@ -115,7 +131,7 @@ object LocalResolverImpl : LocalDNSTransport {
                 )
             } else {
                 DnsResolver.getInstance().query(
-                    SagerNet.underlyingNetwork,
+                    networkProvider(),
                     domain,
                     DnsResolver.FLAG_NO_RETRY,
                     Dispatchers.IO.asExecutor(),
@@ -127,8 +143,10 @@ object LocalResolverImpl : LocalDNSTransport {
             runOnIoDispatcher {
                 // 老版本系统，继续用阻塞的 InetAddress
                 try {
-                    val u = SagerNet.underlyingNetwork
-                    val answer = try {
+                    val u = networkProvider()
+                    val answer = if (!allowDefaultFallback) {
+                        requireNotNull(u) { "URL Test network unavailable for DNS" }.getAllByName(domain)
+                    } else try {
                         u?.getAllByName(domain)
                     } catch (e: UnknownHostException) {
                         null
@@ -149,3 +167,5 @@ object LocalResolverImpl : LocalDNSTransport {
     }
 
 }
+
+object LocalResolverImpl : NetworkLocalResolver({ SagerNet.underlyingNetwork })

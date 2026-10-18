@@ -43,6 +43,7 @@ object SendLog {
 
         logFile.appendText("\n")
         logFile.appendBytes(getNekoLog(0))
+        logFile.writeText(LogRedactor.redact(logFile.readText()))
 
         context.startActivity(
             Intent.createChooser(
@@ -69,7 +70,7 @@ object SendLog {
             if (max in 1 until len) {
                 stream.skip(len - max) // TODO string?
             }
-            stream.use { it.readBytes() }
+            stream.use { LogRedactor.redact(it.readBytes().toString(Charsets.UTF_8)).toByteArray() }
         } catch (e: Exception) {
             e.stackTraceToString().toByteArray()
         }

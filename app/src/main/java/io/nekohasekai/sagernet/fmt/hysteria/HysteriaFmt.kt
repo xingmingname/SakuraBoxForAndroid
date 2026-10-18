@@ -272,7 +272,7 @@ fun HysteriaBean.canUseSingBox(): Boolean {
     return true
 }
 
-fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBoxOption {
+fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean, globalAllowInsecure: Boolean = DataStore.globalAllowInsecure): SingBoxOptions.SingBoxOption {
     return when (bean.protocolVersion) {
         1 -> SingBoxOptions.Outbound_HysteriaOptions().apply {
             type = "hysteria"
@@ -287,16 +287,16 @@ fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBox
             up_mbps = bean.uploadMbps
             down_mbps = bean.downloadMbps
             obfs = bean.obfuscation
-            disable_mtu_discovery = bean.disableMtuDiscovery
+            _hack_config_map["disable_path_mtu_discovery"] = bean.disableMtuDiscovery
             when (bean.authPayloadType) {
                 HysteriaBean.TYPE_BASE64 -> auth = bean.authPayload
                 HysteriaBean.TYPE_STRING -> auth_str = bean.authPayload
             }
             if (bean.streamReceiveWindow > 0) {
-                recv_window_conn = bean.streamReceiveWindow.toLong()
+                _hack_config_map["stream_receive_window"] = bean.streamReceiveWindow.toLong()
             }
             if (bean.connectionReceiveWindow > 0) {
-                recv_window_conn = bean.connectionReceiveWindow.toLong()
+                _hack_config_map["connection_receive_window"] = bean.connectionReceiveWindow.toLong()
             }
             tls = SingBoxOptions.OutboundTLSOptions().apply {
                 if (bean.sni.isNotBlank()) {
@@ -308,7 +308,7 @@ fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBox
                 if (bean.caText.isNotBlank()) {
                     certificate = bean.caText
                 }
-                insecure = bean.allowInsecure || DataStore.globalAllowInsecure
+                insecure = bean.allowInsecure || globalAllowInsecure
                 enabled = true
             }
         }
@@ -331,13 +331,13 @@ fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBox
                     password = bean.obfuscation
                 }
             }
-//            disable_mtu_discovery = bean.disableMtuDiscovery
+//            _hack_config_map["disable_path_mtu_discovery"] = bean.disableMtuDiscovery
             password = bean.authPayload
 //            if (bean.streamReceiveWindow > 0) {
-//                recv_window_conn = bean.streamReceiveWindow.toLong()
+//                _hack_config_map["stream_receive_window"] = bean.streamReceiveWindow.toLong()
 //            }
 //            if (bean.connectionReceiveWindow > 0) {
-//                recv_window_conn = bean.connectionReceiveWindow.toLong()
+//                _hack_config_map["connection_receive_window"] = bean.connectionReceiveWindow.toLong()
 //            }
             tls = SingBoxOptions.OutboundTLSOptions().apply {
                 if (bean.sni.isNotBlank()) {
@@ -347,7 +347,7 @@ fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBox
                 if (bean.caText.isNotBlank()) {
                     certificate = bean.caText
                 }
-                insecure = bean.allowInsecure || DataStore.globalAllowInsecure
+                insecure = bean.allowInsecure || globalAllowInsecure
                 enabled = true
             }
         }
@@ -357,12 +357,12 @@ fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBox
 }
 
 fun hopPortsToSingboxList(s: String): List<String> {
-    return s.split(",").mapNotNull {
-        val pRange = it.replace("-", ":")
-        if (pRange.split(":").size == 2) {
-            pRange
-        } else {
-            null
-        }
+    return s.split(",").map {
+        val parts = it.trim().replace("-", ":").split(":")
+        require(parts.size in 1..2) { "Invalid Hysteria port range" }
+        val first = parts[0].toIntOrNull() ?: error("Invalid Hysteria port")
+        val last = if (parts.size == 1) first else parts[1].toIntOrNull() ?: error("Invalid Hysteria port")
+        require(first in 1..65535 && last in first..65535) { "Invalid Hysteria port range" }
+        "$first:$last"
     }
 }

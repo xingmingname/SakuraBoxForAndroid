@@ -1,5 +1,7 @@
 package io.nekohasekai.sagernet.ui
 
+import moe.matsuri.nb4a.utils.ImportLimits
+
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -25,6 +27,11 @@ import io.nekohasekai.sagernet.databinding.LayoutImportBinding
 import io.nekohasekai.sagernet.databinding.LayoutProgressBinding
 import io.nekohasekai.sagernet.ktx.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.CancellationException
 import moe.matsuri.nb4a.utils.Util
 import org.json.JSONArray
 import org.json.JSONObject
@@ -200,20 +207,37 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         }
 
         val content = try {
-            JSONObject((requireContext().contentResolver.openInputStream(file) ?: return).use {
-                it.bufferedReader().readText()
-            })
+            val text = runInterruptible(Dispatchers.IO) {
+                requireContext().contentResolver.openInputStream(file)?.use {
+                    ImportLimits.readUtf8(it, ImportLimits.MAX_BACKUP_BYTES).also(ImportLimits::checkJsonStructure)
+                }
+            } ?: return
+            runInterruptible(Dispatchers.Default) { JSONObject(text) }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: ImportLimits.InputLimitException) {
+            onMainDispatcher { snackbar(error.readableMessage).show() }
+            return
         } catch (e: Exception) {
             Logs.w(e)
             invalid()
             return
         }
+        currentCoroutineContext().ensureActive()
         val version = content.optInt("version", 0)
         if (version < 1 || version > 1) {
             invalid()
             return
         }
 
+        try {
+            for (key in listOf("profiles", "groups", "rules", "settings")) {
+                content.optJSONArray(key)?.let { ImportLimits.checkNodeCount(it.length().toLong()) }
+            }
+        } catch (error: ImportLimits.InputLimitException) {
+            onMainDispatcher { snackbar(error.readableMessage).show() }
+            return
+        }
         onMainDispatcher {
             val import = LayoutImportBinding.inflate(layoutInflater)
             if (!content.has("profiles")) {

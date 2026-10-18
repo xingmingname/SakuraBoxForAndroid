@@ -1,0 +1,46 @@
+diff --git a/protect_server/protect_server_linux.go b/protect_server/protect_server_linux.go
+index 555fa2f..49159cc 100644
+--- a/protect_server/protect_server_linux.go
++++ b/protect_server/protect_server_linux.go
+@@ -44,6 +44,16 @@ func GetFdFromConn(l net.Conn) int {
+ }
+ 
+ func ServeProtect(path string, verbose bool, fwmark int, protectCtl func(fd int)) io.Closer {
++	var checked func(int) error
++	if protectCtl != nil {
++		checked = func(fd int) error { protectCtl(fd); return nil }
++	}
++	return ServeProtectWithError(path, verbose, fwmark, checked)
++}
++
++// Preserve the old API, and propagate Android protect failures in the socket
++// protocol's existing success/failure response instead of acknowledging success.
++func ServeProtectWithError(path string, verbose bool, fwmark int, protectCtl func(fd int) error) io.Closer {
+ 	if verbose {
+ 		log.Println("ServeProtect", path, fwmark)
+ 	}
+@@ -55,7 +65,7 @@ func ServeProtect(path string, verbose bool, fwmark int, protectCtl func(fd int)
+ 	}
+ 	os.Chmod(path, 0777)
+ 
+-	go func(ctl func(fd int)) {
++	go func(ctl func(fd int) error) {
+ 		for {
+ 			c, err := l.Accept()
+ 			if err != nil {
+@@ -80,12 +90,13 @@ func ServeProtect(path string, verbose bool, fwmark int, protectCtl func(fd int)
+ 
+ 				if ctl == nil {
+ 					// linux
+-					if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, fwmark); err != nil {
++					err = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, fwmark)
++					if err != nil {
+ 						log.Println("protect server syscall.SetsockoptInt:", err)
+ 					}
+ 				} else {
+ 					// android
+-					ctl(fd)
++					err = ctl(fd)
+ 				}
+ 
+ 				if err == nil {

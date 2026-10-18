@@ -2,7 +2,6 @@
 <resources>
     <string name="group_name">Nome do grupo</string>
     <string name="group_default">Desagrupado</string>
-    <string name="document">Documento</string>
     <string name="theme">Tema</string>
     <string name="menu_about">Sobre</string>
     <string name="menu_group">Grupo</string>

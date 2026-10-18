@@ -1,0 +1,29 @@
+// Read-only variant assertions. Run locally with -I and verifySakuraApplicationIdentity.
+gradle.projectsEvaluated {
+    def app = gradle.rootProject.findProject(':app')
+    if (app == null) return
+    app.tasks.register('verifySakuraApplicationIdentity') {
+        doLast {
+            assert app.android.namespace == 'io.nekohasekai.sagernet'
+            assert app.android.defaultConfig.applicationId == 'app.sakurabox.client'
+            assert app.android.buildTypes.debug.applicationIdSuffix == '.debug'
+            def rows = []
+            app.android.applicationVariants.each { variant ->
+                def expected = 'app.sakurabox.client' + (variant.buildType.name == 'debug' ? '.debug' : '')
+                assert variant.applicationId == expected
+                assert variant.versionName == '1.0.0' && variant.versionCode == 230
+                variant.outputs.each { output ->
+                    def abi = output.getFilter('ABI') ?: 'universal'
+                    assert output.outputFileName == "SakuraBox-${variant.versionName}-${abi}-${variant.buildType.name}.apk"
+                    rows << [variant: variant.name, applicationId: variant.applicationId,
+                             versionName: variant.versionName, versionCode: variant.versionCode,
+                             abi: abi, fileName: output.outputFileName,
+                             signingConfigured: variant.signingConfig != null]
+                }
+            }
+            def destination = new File(app.rootProject.layout.buildDirectory.get().asFile.parentFile.parentFile, 'variant-identity.json')
+            destination.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(rows))
+            println "Verified ${rows.size()} variant identity/filename outputs: ${destination}"
+        }
+    }
+}

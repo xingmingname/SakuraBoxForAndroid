@@ -1,5 +1,11 @@
 package io.nekohasekai.sagernet.ui
 
+import moe.matsuri.nb4a.utils.ImportLimits
+import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.Dispatchers
+
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Color
@@ -93,7 +99,6 @@ import io.nekohasekai.sagernet.ui.profile.WireGuardSettingsActivity
 import io.nekohasekai.sagernet.widget.QRCodeDialog
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
 import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
@@ -294,25 +299,22 @@ class ConfigurationFragment @JvmOverloads constructor(
                     val proxies = mutableListOf<AbstractBean>()
                     if (fileName != null && fileName.endsWith(".zip")) {
                         // try parse wireguard zip
-                        val zip =
-                            ZipInputStream(requireContext().contentResolver.openInputStream(file)!!)
-                        while (true) {
-                            val entry = zip.nextEntry ?: break
-                            if (entry.isDirectory) continue
-                            val fileText = zip.bufferedReader().readText()
-                            RawUpdater.parseRaw(fileText, entry.name)
-                                ?.let { pl -> proxies.addAll(pl) }
-                            zip.closeEntry()
-                        }
-                        zip.closeQuietly()
-                    } else {
-                        val fileText =
-                            requireContext().contentResolver.openInputStream(file)!!.use {
-                                it.bufferedReader().readText()
+                        ImportLimits.ZipReader(requireContext().contentResolver.openInputStream(file)!!).use { zip ->
+                            while (true) {
+                                val entry = runInterruptible(Dispatchers.IO) { zip.next() } ?: break
+                                RawUpdater.parseRaw(entry.text, entry.name)?.let { parsed ->
+                                    ImportLimits.checkNodeCount(proxies.size.toLong() + parsed.size)
+                                    proxies.addAll(parsed)
+                                }
                             }
-                        RawUpdater.parseRaw(fileText, fileName ?: "")
-                            ?.let { pl -> proxies.addAll(pl) }
+                        }
+                    } else {
+                        val fileText = runInterruptible(Dispatchers.IO) {
+                            requireContext().contentResolver.openInputStream(file)!!.use { ImportLimits.readUtf8(it) }
+                        }
+                        RawUpdater.parseRaw(fileText, fileName ?: "")?.let { proxies.addAll(it) }
                     }
+                    currentCoroutineContext().ensureActive()
                     if (proxies.isEmpty()) onMainDispatcher {
                         snackbar(getString(R.string.no_proxies_found_in_file)).show()
                     } else import(proxies)
@@ -1691,8 +1693,9 @@ class ConfigurationFragment @JvmOverloads constructor(
                         )
 
                         R.id.action_config_export_clipboard -> export(entity.exportConfig().first)
-                        R.id.action_config_export_file -> {
-                            val cfg = entity.exportConfig()
+                        R.id.action_config_export_official_clipboard -> export(entity.exportConfig(official = true).first)
+                        R.id.action_config_export_file, R.id.action_config_export_official_file -> {
+                            val cfg = entity.exportConfig(official = item.itemId == R.id.action_config_export_official_file)
                             DataStore.serverConfig = cfg.first
                             startFilesForResult(
                                 (parentFragment as ConfigurationFragment).exportConfig, cfg.second
