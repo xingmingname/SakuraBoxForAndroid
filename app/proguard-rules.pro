@@ -4,6 +4,11 @@
 -keep class io.nekohasekai.sagernet.** { *;}
 -keep class moe.matsuri.nb4a.** { *;}
 
+# Gson TypeToken resolves anonymous subclasses through their generic signatures.
+-keepattributes Signature
+-keep class com.google.gson.reflect.TypeToken { *; }
+-keep class * extends com.google.gson.reflect.TypeToken
+
 # Clean Kotlin
 -assumenosideeffects class kotlin.jvm.internal.Intrinsics {
     static void checkParameterIsNotNull(java.lang.Object, java.lang.String);
