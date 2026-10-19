@@ -51,6 +51,11 @@
             app:key="utlsFingerprint"
             app:title="@string/utls_fingerprint"
             app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_vpn_key_24"
+            app:key="echConfig"
+            app:title="@string/ech_config"
+            app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 
 </PreferenceScreen>

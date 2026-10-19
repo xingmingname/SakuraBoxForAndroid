@@ -37,6 +37,8 @@ import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.databinding.LayoutGroupItemBinding
 import io.nekohasekai.sagernet.fmt.AbstractBean
+import io.nekohasekai.sagernet.fmt.ProtocolOptions
+import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.ui.ThemedActivity
 import io.nekohasekai.sagernet.widget.ListListener
@@ -89,6 +91,20 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
     val proxyEntity by lazy { SagerDatabase.proxyDao.getById(DataStore.editingId) }
     protected var isSubscription by Delegates.notNull<Boolean>()
+    private var protocolPreferences: ProtocolAdvancedPreferences? = null
+
+    private fun currentEditorBean(): T {
+        val bean = (proxyEntity?.requireBean()?.clone() ?: createEntity().applyDefaultValues()) as T
+        bean.serialize()
+        return bean
+    }
+
+    private fun initializeEditor(bean: T) {
+        val editor = if (ProtocolOptions.protocol(bean) == "hysteria") bean.clone() as T else bean
+        ProtocolOptions.migrateEditorOptions(editor)
+        DataStore.profileCacheStore.putString(ProtocolAdvancedPreferences.CACHE_KEY, editor.protocolOptionsJson ?: "")
+        editor.init()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -106,7 +122,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             runOnDefaultDispatcher {
                 if (editingId == 0L) {
                     DataStore.editingGroup = DataStore.selectedGroupForImport()
-                    createEntity().applyDefaultValues().init()
+                    initializeEditor(createEntity().applyDefaultValues())
                 } else {
                     if (proxyEntity == null) {
                         onMainDispatcher {
@@ -115,7 +131,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                         return@runOnDefaultDispatcher
                     }
                     DataStore.editingGroup = proxyEntity!!.groupId
-                    (proxyEntity!!.requireBean() as T).init()
+                    initializeEditor(proxyEntity!!.requireBean() as T)
                 }
 
                 onMainDispatcher {
@@ -132,10 +148,25 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
     open suspend fun saveAndExit() {
 
+        val edited = currentEditorBean()
+        edited.protocolOptionsJson = DataStore.profileCacheStore.getString(ProtocolAdvancedPreferences.CACHE_KEY) ?: ""
+        try {
+            if (ProtocolOptions.protocol(edited) != null) {
+                ProtocolOptions.validate(edited, ProtocolOptions.parse(edited.protocolOptionsJson))
+            }
+        } catch (e: Exception) {
+            onMainDispatcher {
+                Toast.makeText(this@ProfileSettingsActivity,
+                    if (e is ProtocolOptions.QuicECHConfigException) R.string.protocol_quic_static_ech_required
+                    else R.string.protocol_options_conflict, Toast.LENGTH_LONG).show()
+            }
+            return // Validation must precede stopping the active VPN or writing the database.
+        }
+
         val editingId = DataStore.editingId
         if (editingId == 0L) {
             val editingGroup = DataStore.editingGroup
-            ProfileManager.createProfile(editingGroup, createEntity().apply { serialize() })
+            ProfileManager.createProfile(editingGroup, edited)
         } else {
             if (proxyEntity == null) {
                 finish()
@@ -144,7 +175,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             if (proxyEntity!!.id == DataStore.selectedProxy) {
                 SagerNet.stopService()
             }
-            ProfileManager.updateProfile(proxyEntity!!.apply { (requireBean() as T).serialize() })
+            ProfileManager.updateProfile(proxyEntity!!.apply { putBean(edited) })
         }
         finish()
 
@@ -189,9 +220,29 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         super.onDestroy()
     }
 
+    private fun migrateHysteriaEditorCache() {
+        if (createEntity() !is HysteriaBean) return
+        val editor = currentEditorBean()
+        editor.protocolOptionsJson = DataStore.profileCacheStore.getString(ProtocolAdvancedPreferences.CACHE_KEY) ?: ""
+        val before = editor.protocolOptionsJson
+        ProtocolOptions.migrateEditorOptions(editor)
+        if (editor is HysteriaBean && before != editor.protocolOptionsJson) {
+            DataStore.serverDisableMtuDiscovery = editor.disableMtuDiscovery
+            DataStore.profileCacheStore.putString(ProtocolAdvancedPreferences.CACHE_KEY, editor.protocolOptionsJson)
+        }
+    }
+
     override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
         if (key != Key.PROFILE_DIRTY) {
             DataStore.dirty = true
+        }
+        if (key in setOf("security", "type", "enableMux", "enableECH", "echConfig", "realityPubKey", Key.PROTOCOL_VERSION, Key.SERVER_PROTOCOL)) {
+            runOnUiThread {
+                if (key in setOf(Key.PROTOCOL_VERSION, Key.SERVER_PROTOCOL)) {
+                    migrateHysteriaEditorCache()
+                }
+                protocolPreferences?.refresh()
+            }
         }
     }
 
@@ -215,7 +266,10 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             preferenceManager.preferenceDataStore = DataStore.profileCacheStore
             try {
                 activity = (requireActivity() as ProfileSettingsActivity<*>).apply {
+                    migrateHysteriaEditorCache() // Also handles an editor cache restored across an app upgrade.
                     createPreferences(savedInstanceState, rootKey)
+                    protocolPreferences = ProtocolAdvancedPreferences(this@MyPreferenceFragmentCompat) { currentEditorBean() }
+                    protocolPreferences?.refresh()
                 }
             } catch (e: Exception) {
                 Toast.makeText(
@@ -283,7 +337,10 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                 activity?.proxyEntity?.apply {
                     val bean = requireBean()
                     DataStore.serverCustomOutbound = bean.customOutboundJson
-                    callbackCustomOutbound = { bean.customOutboundJson = it }
+                    callbackCustomOutbound = {
+                        bean.customOutboundJson = it
+                        activity?.protocolPreferences?.refresh()
+                    }
                     resultCallbackCustomOutbound.launch(
                         Intent(
                             requireContext(),

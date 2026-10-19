@@ -68,7 +68,7 @@ fun TuicBean.toUri(): String {
     return builder.toLink("tuic")
 }
 
-fun buildSingBoxOutboundTuicBean(bean: TuicBean): SingBoxOptions.Outbound_TUICOptions {
+fun buildSingBoxOutboundTuicBean(bean: TuicBean, globalAllowInsecure: Boolean = DataStore.globalAllowInsecure): SingBoxOptions.Outbound_TUICOptions {
     if (bean.protocolVersion == 4) throw Exception("TUIC v4 is no longer supported")
     return SingBoxOptions.Outbound_TUICOptions().apply {
         type = "tuic"
@@ -92,7 +92,7 @@ fun buildSingBoxOutboundTuicBean(bean: TuicBean): SingBoxOptions.Outbound_TUICOp
                 certificate = bean.caText
             }
             disable_sni = bean.disableSNI
-            insecure = bean.allowInsecure || DataStore.globalAllowInsecure
+            insecure = bean.allowInsecure || globalAllowInsecure
             enabled = true
         }
     }

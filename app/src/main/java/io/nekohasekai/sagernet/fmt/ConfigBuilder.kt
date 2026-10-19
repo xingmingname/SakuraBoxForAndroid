@@ -411,6 +411,7 @@ fun buildConfig(
 
                     _hack_config_map["tag"] = tagOut
 
+                    ProtocolOptions.applyTo(this, bean, proxyEntity.needExternal())
                     _hack_custom_config = bean.customOutboundJson
                 }
 

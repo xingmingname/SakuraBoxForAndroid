@@ -343,7 +343,7 @@ fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean, globalAllowInsecure: Bo
                 if (bean.sni.isNotBlank()) {
                     server_name = bean.sni
                 }
-                alpn = listOf("h3")
+                alpn = bean.alpn.takeIf { it.isNotBlank() }?.listByLineOrComma() ?: listOf("h3")
                 if (bean.caText.isNotBlank()) {
                     certificate = bean.caText
                 }

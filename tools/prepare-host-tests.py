@@ -1,4 +1,4 @@
-"""Prepare isolated host regressions; physical Android networking is explicitly unsupported, never simulated as PASS."""
+"""Prepare Windows host tests with explicit Android and Unix socket stubs."""
 from pathlib import Path
 import argparse,hashlib,json,shutil
 ROOT=Path(__file__).resolve().parents[1]

@@ -17,9 +17,11 @@ fun buildSingBoxOutboundSSHBean(bean: SSHBean): SingBoxOptions.Outbound_SSHOptio
                 private_key = bean.privateKey
                 private_key_passphrase = bean.privateKeyPassphrase
             }
-            else -> {
+            SSHBean.AUTH_TYPE_PASSWORD -> {
                 password = bean.password
             }
+            SSHBean.AUTH_TYPE_NONE -> Unit
+            else -> error("Unsupported SSH authentication mode")
         }
     }
 }

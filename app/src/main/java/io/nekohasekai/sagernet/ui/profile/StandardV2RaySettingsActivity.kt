@@ -6,6 +6,7 @@ import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.fmt.ProtocolOptions
 import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
@@ -84,7 +85,10 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
 
 
         // vmess/vless/http/trojan
-        val isHttp = tmpBean is HttpBean
+        // init() is not called again on Activity recreation; the concrete editor still identifies HTTP.
+        val isHttp = !ProtocolOptions.supportsSharedTransport(tmpBean ?: createEntity())
+        findPreference<PreferenceCategory>("serverMuxCategory")!!.isVisible =
+            !isHttp
         val isVmess = tmpBean is VMessBean && tmpBean?.isVLESS == false
         val isVless = tmpBean?.isVLESS == true
 
@@ -150,6 +154,7 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
         host.preference.isVisible = false
         path.preference.isVisible = false
         wsCategory.isVisible = false
+        if (!ProtocolOptions.supportsSharedTransport(tmpBean ?: createEntity())) return
 
         when (network) {
             "tcp" -> {

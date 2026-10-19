@@ -89,13 +89,15 @@ fi
 popd >/dev/null
 
 pushd "$GOMOBILE_DIR" >/dev/null
-GOMOBILE_PATCH="$SRC_ROOT/buildScript/lib/core/patches/gomobile-pinned-gobind.patch"
-if git -c "safe.directory=$GOMOBILE_DIR" apply --check "$GOMOBILE_PATCH"; then
-  git -c "safe.directory=$GOMOBILE_DIR" apply "$GOMOBILE_PATCH"
-elif git -c "safe.directory=$GOMOBILE_DIR" apply --reverse --check "$GOMOBILE_PATCH"; then
-  echo "Pinned gomobile gobind patch is already applied."
-else
-  echo "Error: pinned gomobile patch does not match the source checkout."
-  exit 1
-fi
+for PATCH_NAME in gomobile-pinned-gobind.patch gomobile-private-paths.patch; do
+  GOMOBILE_PATCH="$SRC_ROOT/buildScript/lib/core/patches/$PATCH_NAME"
+  if git -c "safe.directory=$GOMOBILE_DIR" apply --check "$GOMOBILE_PATCH"; then
+    git -c "safe.directory=$GOMOBILE_DIR" apply "$GOMOBILE_PATCH"
+  elif git -c "safe.directory=$GOMOBILE_DIR" apply --reverse --check "$GOMOBILE_PATCH"; then
+    echo "Gomobile patch $PATCH_NAME is already applied."
+  else
+    echo "Error: gomobile patch $PATCH_NAME does not match the source checkout."
+    exit 1
+  fi
+done
 popd >/dev/null

@@ -2,6 +2,7 @@ package io.nekohasekai.sagernet.ui.profile
 
 import android.os.Bundle
 import androidx.preference.EditTextPreference
+import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreference
 import io.nekohasekai.sagernet.Key
@@ -9,6 +10,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
+import io.nekohasekai.sagernet.fmt.ProtocolOptions
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import moe.matsuri.nb4a.ui.SimpleMenuPreference
 
@@ -74,14 +76,28 @@ class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
 
         val protocol = findPreference<SimpleMenuPreference>(Key.SERVER_PROTOCOL)!!
         val alpn = findPreference<EditTextPreference>(Key.SERVER_ALPN)!!
+        val fixedAlpn = Preference(requireContext()).apply {
+            title = getString(R.string.protocol_hy2_fixed_alpn)
+            isSelectable = false
+            order = alpn.order + 1
+        }
+        alpn.parent!!.addPreference(fixedAlpn)
 
+        fun updateAlpn(v: Int, p: Int) {
+            val native = HysteriaBean().apply { protocolVersion = v; this.protocol = p }
+            alpn.isVisible = ProtocolOptions.supportsCustomAlpn(native)
+            fixedAlpn.isVisible = !alpn.isVisible
+        }
+        protocol.setOnPreferenceChangeListener { _, newValue ->
+            updateAlpn(DataStore.protocolVersion, newValue.toString().toIntOrNull() ?: HysteriaBean.PROTOCOL_UDP)
+            true
+        }
         fun updateVersion(v: Int) {
             if (v == 2) {
                 authPayload.isVisible = true
                 //
                 authType.isVisible = false
                 protocol.isVisible = false
-                alpn.isVisible = false
                 //
                 findPreference<EditTextPreference>(Key.SERVER_STREAM_RECEIVE_WINDOW)!!.isVisible =
                     false
@@ -95,7 +111,6 @@ class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
                 authType.isVisible = true
                 authPayload.isVisible = true
                 protocol.isVisible = true
-                alpn.isVisible = true
                 //
                 findPreference<EditTextPreference>(Key.SERVER_STREAM_RECEIVE_WINDOW)!!.isVisible =
                     true
@@ -106,6 +121,7 @@ class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
                 //
                 authPayload.title = resources.getString(R.string.hysteria_auth_payload)
             }
+            updateAlpn(v, DataStore.serverProtocolInt)
         }
         findPreference<SimpleMenuPreference>(Key.PROTOCOL_VERSION)!!.setOnPreferenceChangeListener { _, newValue ->
             updateVersion(newValue.toString().toIntOrNull() ?: 1)

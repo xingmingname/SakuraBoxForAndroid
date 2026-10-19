@@ -26,4 +26,4 @@ jobs:
         run: bash ./run lib core
       - name: Check Android source and Debug build
         run: ./gradlew --no-daemon testOssDebugUnitTest assembleOssDebug processOssReleaseMainManifest
-      # No artifact upload, commit, push, PR or Release operation. Publishing requires separate human approval.
+      # Validation only; no remote writes or artifact uploads.

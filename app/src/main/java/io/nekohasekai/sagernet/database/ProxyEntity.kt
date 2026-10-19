@@ -235,6 +235,10 @@ data class ProxyEntity(
     }
 
     fun haveStandardLink(): Boolean {
+        if (io.nekohasekai.sagernet.fmt.ProtocolOptions.hasAdvancedOptions(requireBean())) return false
+        (requireBean() as? AnyTLSBean)?.let {
+            if (!it.echConfig.isNullOrBlank() || !it.alpn.isNullOrBlank() || !it.certificates.isNullOrBlank()) return false
+        }
         return when (requireBean()) {
             is SSHBean -> false
             is WireGuardBean -> false
@@ -246,6 +250,10 @@ data class ProxyEntity(
     }
 
     fun toStdLink(compact: Boolean = false): String = with(requireBean()) {
+        if (io.nekohasekai.sagernet.fmt.ProtocolOptions.hasAdvancedOptions(this) ||
+            (this is AnyTLSBean && (!echConfig.isNullOrBlank() || !alpn.isNullOrBlank() || !certificates.isNullOrBlank()))) {
+            return@with toUniversalLink()
+        }
         when (this) {
             is SOCKSBean -> toUri()
             is HttpBean -> toUri()

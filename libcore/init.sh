@@ -22,13 +22,19 @@ if [ "$(git -c "safe.directory=$GOMOBILE_SOURCE" -C "$GOMOBILE_SOURCE" rev-parse
     exit 1
 fi
 
-GOMOBILE_PATCH="$SRC_ROOT/buildScript/lib/core/patches/gomobile-pinned-gobind.patch"
-if git -c "safe.directory=$GOMOBILE_SOURCE" -C "$GOMOBILE_SOURCE" apply --check "$GOMOBILE_PATCH"; then
-    git -c "safe.directory=$GOMOBILE_SOURCE" -C "$GOMOBILE_SOURCE" apply "$GOMOBILE_PATCH"
-elif ! git -c "safe.directory=$GOMOBILE_SOURCE" -C "$GOMOBILE_SOURCE" apply --reverse --check "$GOMOBILE_PATCH"; then
-    echo "Error: pinned gomobile patch does not match its source."
-    exit 1
-fi
+PATCH_DIR="$SRC_ROOT/buildScript/lib/core/patches"
+for PATCH_NAME in gomobile-pinned-gobind.patch gomobile-private-paths.patch; do
+    GOMOBILE_PATCH="$PATCH_DIR/$PATCH_NAME"
+    if git -c "safe.directory=$GOMOBILE_SOURCE" -C "$GOMOBILE_SOURCE" apply --check "$GOMOBILE_PATCH"; then
+        git -c "safe.directory=$GOMOBILE_SOURCE" -C "$GOMOBILE_SOURCE" apply "$GOMOBILE_PATCH"
+    elif ! git -c "safe.directory=$GOMOBILE_SOURCE" -C "$GOMOBILE_SOURCE" apply --reverse --check "$GOMOBILE_PATCH"; then
+        echo "Error: gomobile patch $PATCH_NAME does not match its source."
+        exit 1
+    fi
+done
+# An existing tool built before a patch change must not bypass that fix.
+PATCH_HASH=$(cat "$PATCH_DIR/gomobile-pinned-gobind.patch" "$PATCH_DIR/gomobile-private-paths.patch" | git hash-object --stdin)
+PATCH_STAMP="$GOMOBILE_BIN/.sakurabox-gomobile-patches.id"
 
 export GOPATH="$GOMOBILE_GOPATH"
 export GOBIN="$GOMOBILE_BIN"
@@ -38,7 +44,7 @@ case "$OSTYPE" in
     cygwin*|msys*|win32*) BIN_SUFFIX=".exe" ;;
 esac
 
-if [ ! -x "$GOMOBILE_BIN/gomobile-matsuri$BIN_SUFFIX" ] || [ ! -x "$GOMOBILE_BIN/gobind-matsuri$BIN_SUFFIX" ]; then
+if [ ! -x "$GOMOBILE_BIN/gomobile-matsuri$BIN_SUFFIX" ] || [ ! -x "$GOMOBILE_BIN/gobind-matsuri$BIN_SUFFIX" ] || [ ! -f "$PATCH_STAMP" ] || [ "$(cat "$PATCH_STAMP")" != "$PATCH_HASH" ]; then
     pushd "$GOMOBILE_SOURCE/cmd/gomobile" >/dev/null
     go install -v .
     popd >/dev/null
@@ -47,6 +53,7 @@ if [ ! -x "$GOMOBILE_BIN/gomobile-matsuri$BIN_SUFFIX" ] || [ ! -x "$GOMOBILE_BIN
     popd >/dev/null
     mv -f "$GOMOBILE_BIN/gomobile$BIN_SUFFIX" "$GOMOBILE_BIN/gomobile-matsuri$BIN_SUFFIX"
     mv -f "$GOMOBILE_BIN/gobind$BIN_SUFFIX" "$GOMOBILE_BIN/gobind-matsuri$BIN_SUFFIX"
+    printf '%s\n' "$PATCH_HASH" > "$PATCH_STAMP"
 fi
 
 GOBIND=gobind-matsuri gomobile-matsuri init

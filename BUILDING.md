@@ -83,7 +83,7 @@ GitHub workflow 只支持手动、只读构建验证，没有上传/发布步骤
 公开前还需真机验证：安装与共存、关于页 1.0.0、VPN 撤销与切网、Hy2/VLESS、独立 URL Test A/B 隔离、YACD 认证、导入配额、快捷方式、SFA 导出。
 
 
-### 独立 Release 签名准备（未配置，不在本轮生成密钥）
+### 独立 Release 签名
 
 请使用 SakuraBox 独立、从未公开的签名密钥，固定其公开证书 SHA-256，并离线备份。
 不要复用 Git 历史里的 NekoBox PKCS#12 文件；本地没有该文件和签名参数时，Debug 构建可独立进行。
@@ -127,4 +127,4 @@ node node_modules/vite/bin/vite.js build
 也不要直接覆盖现有 ZIP 或递增 Android 资源计数器。
 若以后采用重建包，需要额外保留 Twemoji Mozilla v0.7.0 的 Apache-2.0 代码许可和 CC-BY-4.0 图形许可，
 重新核对字体来源、完整通知及资源清单，并完成页面、认证、缓存更新和 Android WebView 回归。
-本次保留原 UI 文件，参考构建不是已验收的替代发行包。
+应用使用现有 UI 归档；参考构建不作为替代发行包。

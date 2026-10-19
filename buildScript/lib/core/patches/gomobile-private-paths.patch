@@ -1,0 +1,216 @@
+diff --git a/cmd/gomobile/bind.go b/cmd/gomobile/bind.go
+--- a/cmd/gomobile/bind.go
++++ b/cmd/gomobile/bind.go
+@@ -326,6 +326,11 @@
+ 		if f == nil {
+ 			return nil
+ 		}
++		if buildTrimpath {
++			if err := relativeLocalReplacements(f, dir); err != nil {
++				return err
++			}
++		}
+ 		bs, err := f.Format()
+ 		if err != nil {
+ 			return err
+diff --git a/cmd/gomobile/bind_module_paths.go b/cmd/gomobile/bind_module_paths.go
+new file mode 100644
+--- /dev/null
++++ b/cmd/gomobile/bind_module_paths.go
+@@ -0,0 +1,41 @@
++// Copyright 2026 SakuraBox contributors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++package main
++
++import (
++	"fmt"
++	"path/filepath"
++	"strings"
++
++	"golang.org/x/mod/modfile"
++)
++
++// Keep real local module replacements while avoiding machine-specific absolute
++// directories in Go build information. Paths are relative to the generated
++// go.mod, not the source module or the caller's working directory.
++func relativeLocalReplacements(f *modfile.File, dir string) error {
++	base, err := filepath.Abs(dir)
++	if err != nil {
++		return fmt.Errorf("resolve generated module directory: %w", err)
++	}
++	for _, replacement := range f.Replace {
++		if replacement.New.Version != "" || !filepath.IsAbs(replacement.New.Path) {
++			continue
++		}
++		relative, err := filepath.Rel(base, replacement.New.Path)
++		if err != nil {
++			// Do not silently preserve an absolute path on another volume.
++			return fmt.Errorf("local replacement for %s cannot be made relative", replacement.Old.Path)
++		}
++		relative = filepath.ToSlash(relative)
++		if relative != "." && !strings.HasPrefix(relative, "./") && !strings.HasPrefix(relative, "../") {
++			relative = "./" + relative
++		}
++		if err := f.AddReplace(replacement.Old.Path, replacement.Old.Version, relative, ""); err != nil {
++			return fmt.Errorf("update local replacement for %s: %w", replacement.Old.Path, err)
++		}
++	}
++	return nil
++}
+diff --git a/cmd/gomobile/bind_module_paths_test.go b/cmd/gomobile/bind_module_paths_test.go
+new file mode 100644
+--- /dev/null
++++ b/cmd/gomobile/bind_module_paths_test.go
+@@ -0,0 +1,150 @@
++// Copyright 2026 SakuraBox contributors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++package main
++
++import (
++	"debug/buildinfo"
++	"os"
++	"os/exec"
++	"path/filepath"
++	"runtime"
++	"strings"
++	"testing"
++
++	"golang.org/x/mod/modfile"
++)
++
++func TestRelativeLocalReplacements(t *testing.T) {
++	root := t.TempDir()
++	base := filepath.Join(root, "build", "src-android-arm64")
++	tests := []struct {
++		name, path, version, want string
++	}{
++		{"sibling", filepath.Join(root, "libcore"), "", "../../libcore"},
++		{"child", filepath.Join(base, "local dep"), "", "./local dep"},
++		{"same", base, "", "."},
++		{"relative", "../../.build-deps/sing-box", "", "../../.build-deps/sing-box"},
++		{"versioned", "example.org/upstream", "v1.2.3", "example.org/upstream"},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			f := &modfile.File{}
++			if err := f.AddModuleStmt("gobind"); err != nil {
++				t.Fatal(err)
++			}
++			if err := f.AddReplace("example.org/dependency", "v1.0.0", tt.path, tt.version); err != nil {
++				t.Fatal(err)
++			}
++			if err := relativeLocalReplacements(f, base); err != nil {
++				t.Fatal(err)
++			}
++			data, err := f.Format()
++			if err != nil {
++				t.Fatal(err)
++			}
++			parsed, err := modfile.Parse("go.mod", data, nil)
++			if err != nil {
++				t.Fatal(err)
++			}
++			got := parsed.Replace[0]
++			if got.New.Path != tt.want || got.New.Version != tt.version || got.Old.Version != "v1.0.0" {
++				t.Fatalf("replacement semantics changed: %#v", got)
++			}
++			if tt.version == "" && filepath.IsAbs(got.New.Path) {
++				t.Fatal("absolute local replacement remains")
++			}
++		})
++	}
++}
++
++func TestRelativeLocalReplacementsCrossVolume(t *testing.T) {
++	if runtime.GOOS != "windows" {
++		t.Skip("Windows volume boundary")
++	}
++	f := &modfile.File{}
++	if err := f.AddModuleStmt("gobind"); err != nil {
++		t.Fatal(err)
++	}
++	if err := f.AddReplace("example.org/dependency", "", `Z:\dependency`, ""); err != nil {
++		t.Fatal(err)
++	}
++	if err := relativeLocalReplacements(f, `C:\build`); err == nil {
++		t.Fatal("cross-volume absolute path must fail")
++	}
++}
++
++func TestRelativeLocalReplacementsBuildInfo(t *testing.T) {
++	root := t.TempDir()
++	dep := filepath.Join(root, "private source directory", "dependency")
++	generated := filepath.Join(root, "build", "src-android-arm64")
++	for _, dir := range []string{dep, generated} {
++		if err := os.MkdirAll(dir, 0700); err != nil {
++			t.Fatal(err)
++		}
++	}
++	for path, content := range map[string]string{
++		filepath.Join(dep, "go.mod"):        "module example.org/dependency\n\ngo 1.24.0\n",
++		filepath.Join(dep, "value.go"):      "package dependency\nfunc Value() string { return \"isolated-local-dependency\" }\n",
++		filepath.Join(generated, "main.go"): "package main\nimport (\"fmt\"; \"example.org/dependency\")\nfunc main() { fmt.Print(dependency.Value()) }\n",
++	} {
++		if err := os.WriteFile(path, []byte(content), 0600); err != nil {
++			t.Fatal(err)
++		}
++	}
++	f := &modfile.File{}
++	if err := f.AddModuleStmt("gobind"); err != nil {
++		t.Fatal(err)
++	}
++	if err := f.AddGoStmt("1.24.0"); err != nil {
++		t.Fatal(err)
++	}
++	if err := f.AddRequire("example.org/dependency", "v1.0.0"); err != nil {
++		t.Fatal(err)
++	}
++	if err := f.AddReplace("example.org/dependency", "v1.0.0", dep, ""); err != nil {
++		t.Fatal(err)
++	}
++	if err := relativeLocalReplacements(f, generated); err != nil {
++		t.Fatal(err)
++	}
++	data, err := f.Format()
++	if err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(filepath.Join(generated, "go.mod"), data, 0600); err != nil {
++		t.Fatal(err)
++	}
++	binary := filepath.Join(root, "probe.exe")
++	command := exec.Command("go", "build", "-trimpath", "-o", binary, ".")
++	command.Dir = generated
++	command.Env = append(os.Environ(), "GOWORK=off", "GOTOOLCHAIN=local", "GOPROXY=off", "GOFLAGS=-mod=readonly")
++	if output, err := command.CombinedOutput(); err != nil {
++		t.Fatalf("build failed: %v\n%s", err, output)
++	}
++	info, err := buildinfo.ReadFile(binary)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if strings.Contains(info.String(), root) {
++		t.Fatal("absolute build root leaked into build info")
++	}
++	found := false
++	for _, dependency := range info.Deps {
++		if dependency.Path != "example.org/dependency" {
++			continue
++		}
++		found = true
++		if dependency.Version != "v1.0.0" || dependency.Replace == nil || filepath.IsAbs(dependency.Replace.Path) || dependency.Replace.Path != "../../private source directory/dependency" {
++			t.Fatalf("module provenance changed: %#v", dependency)
++		}
++	}
++	if !found {
++		t.Fatal("dependency missing from real binary build info")
++	}
++	output, err := exec.Command(binary).CombinedOutput()
++	if err != nil || string(output) != "isolated-local-dependency" {
++		t.Fatalf("local dependency did not run: %v", err)
++	}
++}

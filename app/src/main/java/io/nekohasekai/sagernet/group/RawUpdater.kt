@@ -521,6 +521,13 @@ object RawUpdater : GroupUpdater() {
                                         val alpn = (opt.value as? (List<String>))
                                         bean.alpn = alpn?.joinToString("\n")
                                     }
+                                    "idle-session-check-interval", "idle-session-timeout", "min-idle-session" -> {
+                                        val path = opt.key.replace('-', '_')
+                                        val field = io.nekohasekai.sagernet.fmt.ProtocolOptions.fields(bean).first { it.path == path }
+                                        bean.protocolOptionsJson = io.nekohasekai.sagernet.fmt.ProtocolOptions.set(
+                                            io.nekohasekai.sagernet.fmt.ProtocolOptions.parse(bean.protocolOptionsJson), field, opt.value.toString()
+                                        ).toString()
+                                    }
                                 }
                             }
                             proxies.add(bean)
@@ -771,6 +778,17 @@ object RawUpdater : GroupUpdater() {
 
         if (json is JSONObject) {
             when {
+                json.optString("type") == "anytls" -> {
+                    moe.matsuri.nb4a.proxy.anytls.importAnyTLSOutbound(json.toString())?.let { return listOf(it) }
+                    return listOf(ConfigBean().applyDefaultValues().apply { type = 1; config = json.toStringPretty() })
+                }
+                json.has("type") && json.has("server") && json.has("server_port") -> {
+                    // A typed sing-box outbound must not enter the legacy Hysteria/SS JSON heuristics:
+                    // they cannot represent modern QUIC, multiplex or other advanced options losslessly.
+                    return listOf(ConfigBean().applyDefaultValues().apply {
+                        type = 1; config = json.toStringPretty(); name = json.getStr("tag")
+                    })
+                }
                 json.has("server") && (json.has("up") || json.has("up_mbps")) -> {
                     return listOf(json.parseHysteria1Json())
                 }
@@ -803,7 +821,7 @@ object RawUpdater : GroupUpdater() {
                             }
                         }.map {
                             ImportLimits.checkCancelled()
-                            ConfigBean().apply {
+                            moe.matsuri.nb4a.proxy.anytls.importAnyTLSOutbound(it.toString()) ?: ConfigBean().apply {
                                 applyDefaultValues()
                                 type = 1
                                 config = it.toStringPretty()
