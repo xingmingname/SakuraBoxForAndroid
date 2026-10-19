@@ -1,7 +1,7 @@
 # SakuraBox 源码构建
 
-正式发布准备版本：应用 `1.0.0`（versionCode 230），核心 `1.14.3-sakura`。
-发布标题约定 `Sakurabox-1.0.0`，tag `v1.0.0`。本文不是已发布声明。
+正式发布准备版本：应用 `1.0.1`（versionCode 235），核心 `1.14.3-sakura`。
+发布标题约定 `Sakurabox-1.0.1`，tag `v1.0.1`。本文不是已发布声明。
 
 ## 工具和依赖
 
@@ -62,7 +62,7 @@ python tools/check-shortcut-security.py
 
 ## 包内验证
 
-四 ABI Debug APK 位于独立输出目录或 `app/build/outputs/apk/oss/debug`，命名 `SakuraBox-1.0.0-<ABI>-debug.apk`。
+四 ABI Debug APK 位于独立输出目录或 `app/build/outputs/apk/oss/debug`，命名 `SakuraBox-1.0.1-<ABI>-debug.apk`。
 `tools/verify-artifacts.py` 为 Windows Android 工具链的严格核验器，要求传入自己可信的证书摘要：
 
 ```powershell
@@ -80,7 +80,7 @@ python tools/verify-artifacts.py --apk-directory <APK目录> --aar <本次AAR> -
 不要使用旧上游历史里公开的签名文件；删除当前文件不会删除已有 Git 历史。
 
 GitHub workflow 只支持手动、只读构建验证，没有上传/发布步骤。创建提交、push、Release 和上传 APK 需另获维护者明确批准。
-公开前还需真机验证：安装与共存、关于页 1.0.0、VPN 撤销与切网、Hy2/VLESS、独立 URL Test A/B 隔离、YACD 认证、导入配额、快捷方式、SFA 导出。
+公开前还需真机验证：安装与共存、关于页 1.0.1、VPN 撤销与切网、Hy2/VLESS、独立 URL Test A/B 隔离、YACD 认证、导入配额、快捷方式、SFA 导出。
 
 
 ### 独立 Release 签名

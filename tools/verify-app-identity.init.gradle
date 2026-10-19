@@ -11,7 +11,7 @@ gradle.projectsEvaluated {
             app.android.applicationVariants.each { variant ->
                 def expected = 'app.sakurabox.client' + (variant.buildType.name == 'debug' ? '.debug' : '')
                 assert variant.applicationId == expected
-                assert variant.versionName == '1.0.0' && variant.versionCode == 230
+                assert variant.versionName == '1.0.1' && variant.versionCode == 235
                 variant.outputs.each { output ->
                     def abi = output.getFilter('ABI') ?: 'universal'
                     assert output.outputFileName == "SakuraBox-${variant.versionName}-${abi}-${variant.buildType.name}.apk"
