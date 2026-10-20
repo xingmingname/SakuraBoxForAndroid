@@ -106,14 +106,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import moe.matsuri.nb4a.Protocols
+import moe.matsuri.nb4a.net.TestNetworkContext
+import moe.matsuri.nb4a.net.measureTcpPing
 import moe.matsuri.nb4a.Protocols.getProtocolColor
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSSettingsActivity
 import moe.matsuri.nb4a.proxy.config.ConfigSettingActivity
 import moe.matsuri.nb4a.proxy.shadowtls.ShadowTLSSettingsActivity
 import moe.matsuri.nb4a.ui.ConnectionTestNotification
 import okhttp3.internal.closeQuietly
-import java.net.InetSocketAddress
-import java.net.Socket
 import java.net.UnknownHostException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -721,47 +721,20 @@ class ConfigurationFragment @JvmOverloads constructor(
                         val profile = profiles.poll() ?: break
 
                         profile.status = 0
-                        var address = profile.requireBean().serverAddress
-                        if (!address.isIpAddress()) {
-                            try {
-                                SagerNet.underlyingNetwork!!.getAllByName(address).apply {
-                                    if (isNotEmpty()) {
-                                        address = this[0].hostAddress
-                                    }
-                                }
-                            } catch (ignored: UnknownHostException) {
-                            }
-                        }
-                        if (!isActive) break
-                        if (!address.isIpAddress()) {
-                            profile.status = 2
-                            profile.error = app.getString(R.string.connection_test_domain_not_found)
-                            test.update(profile)
-                            continue
-                        }
                         try {
                             if (icmpPing) {
                                 // removed
                             } else {
-                                val socket =
-                                    SagerNet.underlyingNetwork?.socketFactory?.createSocket()
-                                        ?: Socket()
-                                try {
-                                    socket.soTimeout = 3000
-                                    socket.bind(InetSocketAddress(0))
-                                    val start = SystemClock.elapsedRealtime()
-                                    socket.connect(
-                                        InetSocketAddress(
-                                            address, profile.requireBean().serverPort
-                                        ), 3000
-                                    )
-                                    if (!isActive) break
-                                    profile.status = 1
-                                    profile.ping = (SystemClock.elapsedRealtime() - start).toInt()
-                                    test.update(profile)
-                                } finally {
-                                    socket.closeQuietly()
-                                }
+                                profile.ping = measureTcpPing(
+                                    profile.requireBean().serverAddress,
+                                    profile.requireBean().serverPort,
+                                    3000,
+                                    { TestNetworkContext.acquireForTcp(it) },
+                                    SystemClock::elapsedRealtime,
+                                )
+                                if (!isActive) break
+                                profile.status = 1
+                                test.update(profile)
                             }
                         } catch (e: Exception) {
                             if (!isActive) break
@@ -773,8 +746,16 @@ class ConfigurationFragment @JvmOverloads constructor(
                             } else {
                                 profile.status = 2
                                 when {
-                                    !message.contains("failed:") -> profile.error =
+                                    e is UnknownHostException -> profile.error =
+                                        getString(R.string.connection_test_domain_not_found)
+
+                                    e is java.net.SocketTimeoutException -> profile.error =
                                         getString(R.string.connection_test_timeout)
+
+                                    !message.contains("failed:") -> {
+                                        profile.status = 3
+                                        profile.error = message
+                                    }
 
                                     else -> when {
                                         message.contains("ECONNREFUSED") -> {

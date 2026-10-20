@@ -14,6 +14,15 @@ import io.nekohasekai.sagernet.fmt.ProtocolOptions
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 
+internal fun Preference.bindProtocolValue(value: String) {
+    // PreferenceDataStore initializes nonpersistent controls again when they join the hierarchy.
+    setDefaultValue(value)
+    when (this) {
+        is EditTextPreference -> text = value
+        is ListPreference -> this.value = value
+    }
+}
+
 /** Editor for native protocol options, separate from custom outbound JSON. */
 internal class ProtocolAdvancedPreferences(
     private val fragment: PreferenceFragmentCompat,
@@ -140,13 +149,11 @@ internal class ProtocolAdvancedPreferences(
                     entryValues = (listOf("") + choices).toTypedArray()
                     entries = (listOf(context.getString(R.string.protocol_core_default)) + choices).toTypedArray()
                     isPersistent = false
-                    value = existing
                     summaryProvider = ListPreference.SimpleSummaryProvider.getInstance()
                 }
             } else {
                 EditTextPreference(context).apply {
                     isPersistent = false
-                    text = existing
                     dialogMessage = context.getString(if (field.path == "tls.ech.config") R.string.protocol_static_ech_help else when (field.kind) {
                         ProtocolOptions.Kind.DURATION -> R.string.protocol_duration_help
                         ProtocolOptions.Kind.PINS -> R.string.protocol_pin_help
@@ -165,6 +172,7 @@ internal class ProtocolAdvancedPreferences(
             }
             pref.key = "protocolAdvanced." + field.path
             pref.title = label
+            pref.bindProtocolValue(existing)
             pref.setOnPreferenceChangeListener { _, value ->
                 try {
                     val updated = ProtocolOptions.set(ProtocolOptions.parse(DataStore.profileCacheStore.getString(CACHE_KEY)), field, value.toString())

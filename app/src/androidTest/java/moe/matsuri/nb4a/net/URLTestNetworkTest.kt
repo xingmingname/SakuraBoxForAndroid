@@ -1,6 +1,11 @@
 package moe.matsuri.nb4a.net
 
 import android.os.Build
+import android.net.NetworkCapabilities
+import android.os.Process
+import io.nekohasekai.sagernet.SagerNet
+import io.nekohasekai.sagernet.Key
+import io.nekohasekai.sagernet.database.DataStore
 import android.os.ParcelFileDescriptor
 import android.test.AndroidTestCase
 import java.io.IOException
@@ -14,6 +19,32 @@ import kotlin.concurrent.thread
 
 /** Compile here; execute only on an explicitly available Android test device. */
 class URLTestNetworkTest : AndroidTestCase() {
+    fun testTcpAndUrlContextsFollowTheSameApplicationRoute() {
+        if (Build.VERSION.SDK_INT < 30) return
+        val connectivity = SagerNet.connectivity
+        val ownVpn = DataStore.serviceMode == Key.MODE_VPN && DataStore.serviceState.started ||
+            connectivity.allNetworks.any {
+                val caps = connectivity.getNetworkCapabilities(it)
+                caps?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true && caps.ownerUid == Process.myUid()
+            }
+        val before = connectivity.activeNetwork
+        TestNetworkContext.acquire { }.use { url ->
+            TestNetworkContext.acquireForTcp { }.use { tcp ->
+                url.checkNetwork()
+                tcp.checkNetwork()
+                assertEquals(url.resolver.networkHandle(), tcp.resolver.networkHandle())
+                val chosen = connectivity.allNetworks.single { it.networkHandle == url.resolver.networkHandle() }
+                if (ownVpn) {
+                    assertFalse(connectivity.getNetworkCapabilities(chosen)!!.hasTransport(NetworkCapabilities.TRANSPORT_VPN))
+                } else {
+                    assertNotNull(before)
+                    assertEquals(before, chosen)
+                }
+                assertEquals(before, connectivity.activeNetwork)
+            }
+        }
+    }
+
     fun testBindingKeepsTCPAndUDPDescriptorsOpen() {
         // fromSocket/fromDatagramSocket ownership differs before API 29.
         if (Build.VERSION.SDK_INT < 29) return
