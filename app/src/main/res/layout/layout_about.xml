@@ -74,11 +74,16 @@
                 android:layout_height="match_parent" />
 
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/license_card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="8dp"
                 android:layout_marginRight="8dp"
                 android:layout_marginBottom="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:descendantFocusability="blocksDescendants"
+                app:cardCornerRadius="12dp"
                 app:cardElevation="2dp">
 
                 <LinearLayout
@@ -95,12 +100,11 @@
 
                     <TextView
                         android:id="@+id/license"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="16dp"
                         android:textAppearance="?attr/textAppearanceBody2"
                         android:textColor="?android:textColorSecondary"
-                        android:textIsSelectable="true"
                         android:textSize="12sp" />
 
                 </LinearLayout>

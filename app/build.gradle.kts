@@ -11,7 +11,14 @@ plugins {
 
 setupApp()
 
+val projectLicenseAssets = layout.buildDirectory.dir("generated/assets/projectLicense")
+val generateProjectLicenseAssets by tasks.registering(Sync::class) {
+    from(rootProject.file("LICENSE")) { into("project-license") }
+    into(projectLicenseAssets)
+}
+
 android {
+    sourceSets.getByName("main").assets.srcDir(projectLicenseAssets)
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
     }
@@ -42,6 +49,8 @@ android {
         generateLocaleConfig = true
     }
 }
+
+tasks.named("preBuild") { dependsOn(generateProjectLicenseAssets) }
 
 dependencies {
 

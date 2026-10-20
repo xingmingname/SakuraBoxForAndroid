@@ -8,7 +8,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
-import android.text.util.Linkify
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.component1
@@ -36,8 +35,10 @@ import io.nekohasekai.sagernet.database.DataStore
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
 class AboutFragment : ToolbarFragment(R.layout.layout_about) {
@@ -54,11 +55,16 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
             .replace(R.id.about_fragment_holder, AboutContent())
             .commitAllowingStateLoss()
 
-        runOnDefaultDispatcher {
-            val license = view.context.assets.open("LICENSE").bufferedReader().readText()
-            onMainDispatcher {
-                binding.license.text = license
-                Linkify.addLinks(binding.license, Linkify.EMAIL_ADDRESSES or Linkify.WEB_URLS)
+        binding.licenseCard.setOnClickListener {
+            if (parentFragmentManager.findFragmentByTag(LicenseDialogFragment.TAG) == null) {
+                LicenseDialogFragment().showNow(parentFragmentManager, LicenseDialogFragment.TAG)
+            }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            binding.license.text = withContext(Dispatchers.IO) {
+                view.context.assets.open("LICENSE").bufferedReader().use {
+                    licenseSummary(it.readText())
+                }
             }
         }
     }
