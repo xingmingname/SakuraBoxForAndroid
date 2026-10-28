@@ -31,7 +31,8 @@ class TrafficLooper
                 val item = idMap[ent.id] ?: return@forEach
                 ent.rx = item.rx
                 ent.tx = item.tx
-                ProfileManager.updateProfile(ent) // update DB
+                io.nekohasekai.sagernet.database.SagerDatabase.proxyDao.updateTraffic(ent.id, ent.rx, ent.tx)
+                ProfileManager.postUpdate(ent.id)
                 traffic[ent.id] = TrafficData(
                     id = ent.id,
                     rx = ent.rx,
@@ -67,7 +68,8 @@ class TrafficLooper
                     it.rx = rx
                     it.tx = tx
                     runOnDefaultDispatcher {
-                        ProfileManager.updateProfile(it) // update DB
+                        io.nekohasekai.sagernet.database.SagerDatabase.proxyDao.updateTraffic(it.id, it.rx, it.tx)
+                        ProfileManager.postUpdate(it.id)
                     }
                 }
             }

@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.ui
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
 import android.app.KeyguardManager
@@ -22,6 +23,8 @@ abstract class ShortcutConfirmationActivity : Activity() {
 
     protected open fun createLegacyShortcut(): Boolean = false
 
+    // Only obscured events are consumed; ordinary clicks remain handled by the Button.
+    @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Never restore a grant or a pending decision after recreation/process death.

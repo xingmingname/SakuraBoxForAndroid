@@ -55,20 +55,43 @@ class ConfigBuildResult(
     var trafficMap: Map<String, List<ProxyEntity>>,
     var profileTagMap: Map<Long, String>,
     val selectorGroupId: Long,
+    val jsonSources: Map<Long, NodeJson.State> = emptyMap(),
 ) {
     data class IndexEntity(var chain: LinkedHashMap<Int, ProxyEntity>)
 }
 
 fun buildConfig(
-    proxy: ProxyEntity, forTest: Boolean = false, forExport: Boolean = false
+    proxy: ProxyEntity, forTest: Boolean = false, forExport: Boolean = false, forPreview: Boolean = false
 ): ConfigBuildResult {
 
-    if (proxy.type == TYPE_CONFIG) {
+    fun completeConfig(text: String, legacy: Boolean = false): com.google.gson.JsonObject {
+        val root = NodeJson.parse(Libcore.migrateConfig(text))
+        if (!forTest && !forExport && !forPreview)
+            requireAndroidJsonVpn(root, DataStore.serviceMode == Key.MODE_VPN, legacy)
+        return root
+    }
+
+    val sourceBean = proxy.requireBean()
+    NodeJson.state(sourceBean)
+    if (sourceBean.jsonMode == NodeJson.FULL) {
+        val root = completeConfig(sourceBean.customConfigJson)
+        NodeJson.validateReferences(root)
+        val effective = if (forTest) NodeJson.testConfig(root) else root
+        val target = NodeJson.runtimeTag(root)
+        return ConfigBuildResult(
+            Libcore.migrateConfig(secureClashApiConfig(effective.toString(),
+                if (!forTest && !forExport && !forPreview) DataStore::activateClashApi else null)),
+            emptyList(), proxy.id, mapOf(target to listOf(proxy)), mapOf(proxy.id to target), -1L,
+            mapOf(proxy.id to NodeJson.state(sourceBean)))
+    }
+
+    if (proxy.type == TYPE_CONFIG && sourceBean.jsonMode != NodeJson.OUTBOUND) {
         val bean = proxy.requireBean() as ConfigBean
         if (bean.type == 0) {
+            val root = completeConfig(bean.config, legacy = true)
             return ConfigBuildResult(
-                Libcore.migrateConfig(secureClashApiConfig(bean.config,
-                    if (!forTest && !forExport) DataStore::activateClashApi else null)),
+                Libcore.migrateConfig(secureClashApiConfig(root.toString(),
+                    if (!forTest && !forExport && !forPreview) DataStore::activateClashApi else null)),
                 listOf(),
                 proxy.id, //
                 mapOf(TAG_PROXY to listOf(proxy)), //
@@ -82,11 +105,17 @@ fun buildConfig(
     val tagMap = HashMap<Long, String>()
     val globalOutbounds = HashMap<Long, String>()
     val selectorNames = ArrayList<String>()
+    val jsonOutbounds = mutableMapOf<String, SingBoxOption>()
     val group = SagerDatabase.groupDao.getById(proxy.groupId)
 
+    val chainGraph = ChainGraph(
+        { SagerNet.application.getString(R.string.circular_reference_sum) },
+        { SagerNet.application.getString(R.string.chain_nesting_too_deep) })
     fun ProxyEntity.resolveChainInternal(): MutableList<ProxyEntity> {
         val bean = requireBean()
-        if (bean is ChainBean) {
+        require(bean.jsonMode != NodeJson.FULL) { "A complete JSON profile cannot be embedded in a chain or routing rule" }
+        if (bean.jsonMode == NodeJson.OUTBOUND) return mutableListOf(this)
+        if (bean is ChainBean) return chainGraph.within(id) {
             val beans = SagerDatabase.proxyDao.getEntities(bean.proxies)
             val beansMap = beans.associateBy { it.id }
             val beanList = ArrayList<ProxyEntity>()
@@ -94,7 +123,7 @@ fun buildConfig(
                 val item = beansMap[proxyId] ?: continue
                 beanList.addAll(item.resolveChainInternal())
             }
-            return beanList.asReversed()
+            beanList.asReversed()
         }
         return mutableListOf(this)
     }
@@ -281,7 +310,13 @@ fun buildConfig(
             val defaultServerDomainStrategy = SingBoxOptionsUtil.domainStrategy("server")
 
             profileList.forEachIndexed { index, proxyEntity ->
-                val bean = proxyEntity.requireBean()
+                val jsonOutbound = proxyEntity.requireBean().jsonMode == NodeJson.OUTBOUND
+                val bean = if (jsonOutbound) proxyEntity.requireBean().clone() else proxyEntity.requireBean()
+                if (jsonOutbound) {
+                    val raw = NodeJson.parse(bean.customOutboundJson)
+                    NodeJson.string(raw, "server")?.let { bean.serverAddress = it }
+                    raw.get("server_port")?.let { bean.serverPort = it.asInt }
+                }
 
                 // tagOut: v2ray outbound tag for a profile
                 // profile2 (in) (global)   tag g-(id)
@@ -296,7 +331,7 @@ fun buildConfig(
                 if (index == profileList.lastIndex) {
                     needGlobal = true
                     tagOut = "g-" + proxyEntity.id
-                    bypassDNSBeans += proxyEntity.requireBean()
+                    bypassDNSBeans += bean
                 }
 
                 // last profile set as "proxy"
@@ -335,7 +370,10 @@ fun buildConfig(
                     globalOutbounds[proxyEntity.id] = tagOut
                 }
 
-                if (proxyEntity.needExternal()) { // externel outbound
+                if (jsonOutbound) {
+                    currentOutbound = CustomSingBoxOption(NodeJson.outbound(bean.customOutboundJson, tagOut).toString())
+                    jsonOutbounds[tagOut] = currentOutbound
+                } else if (proxyEntity.needExternal()) { // externel outbound
                     val localPort = mkPort()
                     externalChainMap[localPort] = proxyEntity
                     currentOutbound = Outbound_SocksOptions().apply {
@@ -391,6 +429,7 @@ fun buildConfig(
 
                 // internal & external
                 currentOutbound.apply {
+                    if (!jsonOutbound) {
                     // udp over tcp
                     try {
                         val sUoT = bean.javaClass.getField("sUoT").get(bean)
@@ -409,10 +448,10 @@ fun buildConfig(
                     }
                     configureOutboundResolver(this, defaultServerDomainStrategy, forTest)
 
-                    _hack_config_map["tag"] = tagOut
-
                     ProtocolOptions.applyTo(this, bean, proxyEntity.needExternal())
-                    _hack_custom_config = bean.customOutboundJson
+                    _hack_custom_config = NodeJson.legacyOutbound(bean)
+                    }
+                    _hack_config_map["tag"] = tagOut
                 }
 
                 // External proxy need a dokodemo-door inbound to forward the traffic
@@ -460,7 +499,7 @@ fun buildConfig(
                     }
                 }
 
-                if (currentOutbound is WireGuardEndpointOptions) {
+                if (currentOutbound is WireGuardEndpointOptions || jsonOutbound && NodeJson.string(NodeJson.parse(bean.customOutboundJson), "type") == "wireguard") {
                     endpoints.add(currentOutbound)
                 } else {
                     outbounds.add(currentOutbound)
@@ -476,8 +515,24 @@ fun buildConfig(
 
         // build outbounds
         if (buildSelector) {
-            val list = group.id.let { SagerDatabase.proxyDao.getByGroup(it) }
-            list.forEach {
+            val list = group.id.let { SagerDatabase.proxyDao.getByGroup(it) }.map { if (it.id == proxy.id) proxy else it }.toMutableList()
+            if (list.none { it.id == proxy.id }) list.add(proxy)
+            list.filter { entry ->
+                val bean = entry.requireBean()
+                when {
+                    bean.jsonMode == NodeJson.FULL -> false
+                    entry.id == proxy.id || bean.jsonMode != NodeJson.OUTBOUND -> true
+                    else -> try {
+                        val out = NodeJson.outbound(bean.customOutboundJson, TAG_PROXY)
+                        val standalone = com.google.gson.JsonObject().apply {
+                            add(if (NodeJson.string(out, "type") == "wireguard") "endpoints" else "outbounds",
+                                com.google.gson.JsonArray().apply { add(out) })
+                        }
+                        NodeJsonProfile.validateCore(standalone)
+                        true
+                    } catch (_: Exception) { false } // A broken inactive JSON node must not stop the selected node.
+                }
+            }.forEach {
                 tagMap[it.id] = buildChain(it.id, it)
             }
             outbounds.add(0, Outbound_SelectorOptions().apply {
@@ -489,6 +544,7 @@ fun buildConfig(
             })
         } else {
             route.final_ = buildChain(0, proxy)
+            tagMap[proxy.id] = route.final_
         }
         // build outbounds from route item
         extraProxies.forEach { (key, p) ->
@@ -724,16 +780,18 @@ fun buildConfig(
         if (!forTest) _hack_custom_config = DataStore.globalCustomConfig
     }.let {
         val configMap = it.asMap()
-        Util.mergeJSON(configMap, proxy.requireBean().customConfigJson)
+        Util.mergeJSON(configMap, NodeJson.legacyFull(proxy.requireBean()))
+        NodeJson.restoreOutbounds(configMap, jsonOutbounds.mapValues { it.value.asMap() })
         finalizeGeneratedConfig(configMap)
         ConfigBuildResult(
             Libcore.migrateConfig(secureClashApiConfig(gson.toJson(configMap),
-                if (!forTest && !forExport) DataStore::activateClashApi else null)),
+                if (!forTest && !forExport && !forPreview) DataStore::activateClashApi else null)),
             externalIndexMap,
             proxy.id,
             trafficMap,
             tagMap,
-            if (buildSelector) group.id else -1L
+            if (buildSelector) group.id else -1L,
+            trafficMap.values.flatten().associate { it.id to NodeJson.state(it.requireBean()) }
         )
     }
 

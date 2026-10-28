@@ -35,8 +35,110 @@ index f202283c5..fa420c527 100644
  		conn, err := listener.ListenNetworkNamespace[net.Conn](ctx, d.netns, func() (net.Conn, error) {
  			switch N.NetworkName(network) {
  			case N.NetworkUDP:
+diff --git a/common/tls/std_client.go b/common/tls/std_client.go
+index 80fa6cb28..6e398eec9 100644
+--- a/common/tls/std_client.go
++++ b/common/tls/std_client.go
+@@ -116,6 +116,10 @@ func NewSTDClient(ctx context.Context, logger logger.ContextLogger, serverAddres
+ }
+ 
+ func newSTDClient(ctx context.Context, logger logger.ContextLogger, serverAddress string, options option.OutboundTLSOptions, allowEmptyServerName bool) (Config, error) {
++	options, err := effectiveCertificateOptions(options)
++	if err != nil {
++		return nil, err
++	}
+ 	var serverName string
+ 	if options.ServerName != "" {
+ 		serverName = options.ServerName
+@@ -236,7 +240,7 @@ func newSTDClient(ctx context.Context, logger logger.ContextLogger, serverAddres
+ 		config:                &tlsConfig,
+ 		serverName:            serverName,
+ 		disableSNI:            options.DisableSNI,
+-		verifyServerName:      options.DisableSNI && !options.Insecure,
++		verifyServerName:      options.DisableSNI && !options.Insecure && len(options.CertificatePublicKeySHA256) == 0,
+ 		handshakeTimeout:      handshakeTimeout,
+ 		fragment:              options.Fragment,
+ 		fragmentFallbackDelay: time.Duration(options.FragmentFallbackDelay),
+diff --git a/common/tls/system_client.go b/common/tls/system_client.go
+index 06f16352b..c74274aa3 100644
+--- a/common/tls/system_client.go
++++ b/common/tls/system_client.go
+@@ -14,14 +14,19 @@ import (
+ )
+ 
+ type SystemTLSValidated struct {
+-	MinVersion uint16
+-	MaxVersion uint16
+-	UserPEM    []byte
+-	Exclusive  bool
+-	Store      adapter.CertificateStore
++	CertificatePublicKeySHA256 [][]byte
++	MinVersion                 uint16
++	MaxVersion                 uint16
++	UserPEM                    []byte
++	Exclusive                  bool
++	Store                      adapter.CertificateStore
+ }
+ 
+ func ValidateSystemTLSOptions(ctx context.Context, options option.OutboundTLSOptions, engineName string) (SystemTLSValidated, error) {
++	options, err := effectiveCertificateOptions(options)
++	if err != nil {
++		return SystemTLSValidated{}, err
++	}
+ 	if options.Reality != nil && options.Reality.Enabled {
+ 		return SystemTLSValidated{}, E.New("reality is unsupported in ", engineName)
+ 	}
+@@ -76,11 +81,12 @@ func ValidateSystemTLSOptions(ctx context.Context, options option.OutboundTLSOpt
+ 		return SystemTLSValidated{}, err
+ 	}
+ 	return SystemTLSValidated{
+-		MinVersion: minVersion,
+-		MaxVersion: maxVersion,
+-		UserPEM:    userPEM,
+-		Exclusive:  exclusive,
+-		Store:      store,
++		CertificatePublicKeySHA256: options.CertificatePublicKeySHA256,
++		MinVersion:                 minVersion,
++		MaxVersion:                 maxVersion,
++		UserPEM:                    userPEM,
++		Exclusive:                  exclusive,
++		Store:                      store,
+ 	}, nil
+ }
+ 
+diff --git a/common/tls/system_client_engine.go b/common/tls/system_client_engine.go
+index 5fc89959f..24736ba71 100644
+--- a/common/tls/system_client_engine.go
++++ b/common/tls/system_client_engine.go
+@@ -99,9 +99,9 @@ func newSystemTLSConfig(ctx context.Context, serverAddress string, options optio
+ 		handshakeTimeout:           handshakeTimeout,
+ 		minVersion:                 validated.MinVersion,
+ 		maxVersion:                 validated.MaxVersion,
+-		insecure:                   options.Insecure || len(options.CertificatePublicKeySHA256) > 0,
++		insecure:                   options.Insecure || len(validated.CertificatePublicKeySHA256) > 0,
+ 		anchorOnly:                 validated.Exclusive,
+-		certificatePublicKeySHA256: append([][]byte(nil), options.CertificatePublicKeySHA256...),
++		certificatePublicKeySHA256: append([][]byte(nil), validated.CertificatePublicKeySHA256...),
+ 		timeFunc:                   ntp.TimeFuncFromContext(ctx),
+ 		store:                      validated.Store,
+ 	}, validated, nil
+diff --git a/common/tls/utls_client.go b/common/tls/utls_client.go
+index 16d0352d0..c338ae7ad 100644
+--- a/common/tls/utls_client.go
++++ b/common/tls/utls_client.go
+@@ -189,6 +189,10 @@ func NewUTLSClient(ctx context.Context, logger logger.ContextLogger, serverAddre
+ }
+ 
+ func newUTLSClient(ctx context.Context, logger logger.ContextLogger, serverAddress string, options option.OutboundTLSOptions, allowEmptyServerName bool) (Config, error) {
++	options, err := effectiveCertificateOptions(options)
++	if err != nil {
++		return nil, err
++	}
+ 	var serverName string
+ 	if options.ServerName != "" {
+ 		serverName = options.ServerName
 diff --git a/constant/version.go b/constant/version.go
-index 5a816a733..18602d4fa 100644
+index 5a816a733..81168cbdc 100644
 --- a/constant/version.go
 +++ b/constant/version.go
 @@ -1,3 +1,3 @@
@@ -44,94 +146,6 @@ index 5a816a733..18602d4fa 100644
  
 -var Version = "unknown"
 +var Version = "1.14.3-sakura"
-diff --git a/protocol/group/selector.go b/protocol/group/selector.go
-index c3aaec5a9..0c89a7cb4 100644
---- a/protocol/group/selector.go
-+++ b/protocol/group/selector.go
-@@ -10,6 +10,7 @@ import (
- 	"github.com/sagernet/sing-box/common/urltest"
- 	C "github.com/sagernet/sing-box/constant"
- 	"github.com/sagernet/sing-box/log"
-+	"github.com/sagernet/sing-box/nekoutils"
- 	"github.com/sagernet/sing-box/option"
- 	"github.com/sagernet/sing/common"
- 	E "github.com/sagernet/sing/common/exceptions"
-@@ -146,6 +147,9 @@ func (s *Selector) SelectOutbound(tag string) bool {
- 		}
- 	}
- 	s.interruptGroup.Interrupt(s.interruptExternalConnections)
-+	if nekoutils.Selector_OnProxySelected != nil {
-+		nekoutils.Selector_OnProxySelected(s.Tag(), tag)
-+	}
- 	if s.history != nil {
- 		s.history.NotifyUpdated()
- 	}
-diff --git a/protocol/vless/outbound.go b/protocol/vless/outbound.go
-index c0ece0a2d..2e08eceb6 100644
---- a/protocol/vless/outbound.go
-+++ b/protocol/vless/outbound.go
-@@ -92,11 +92,15 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
- 			return nil, E.New("unknown packet encoding: ", *options.PacketEncoding)
- 		}
- 	}
-+	multiplexOptions := common.PtrValueOrDefault(options.Multiplex)
-+	if multiplexOptions.Enabled {
-+		options.Flow = ""
-+	}
- 	outbound.client, err = vless.NewClient(options.UUID, options.Flow, logger)
- 	if err != nil {
- 		return nil, err
- 	}
--	outbound.multiplexDialer, err = mux.NewClientWithOptions((*vlessDialer)(outbound), logger, common.PtrValueOrDefault(options.Multiplex))
-+	outbound.multiplexDialer, err = mux.NewClientWithOptions((*vlessDialer)(outbound), logger, multiplexOptions)
- 	if err != nil {
- 		return nil, err
- 	}
-diff --git a/route/rule/rule_set_local.go b/route/rule/rule_set_local.go
-index 9d5d21e83..a0ee65b88 100644
---- a/route/rule/rule_set_local.go
-+++ b/route/rule/rule_set_local.go
-@@ -11,6 +11,7 @@ import (
- 	"github.com/sagernet/sing-box/adapter"
- 	"github.com/sagernet/sing-box/common/srs"
- 	C "github.com/sagernet/sing-box/constant"
-+	"github.com/sagernet/sing-box/nekoutils"
- 	"github.com/sagernet/sing-box/option"
- 	"github.com/sagernet/sing/common"
- 	E "github.com/sagernet/sing/common/exceptions"
-@@ -54,6 +55,32 @@ func NewLocalRuleSet(ctx context.Context, logger logger.Logger, tag string, opti
- 			return nil, err
- 		}
- 	} else {
-+		if strings.HasPrefix(options.LocalOptions.Path, "geoip:") {
-+			if nekoutils.GetGeoIPHeadlessRules == nil {
-+				return nil, E.New("GeoIP rule callback is not initialized")
-+			}
-+			rules, err := nekoutils.GetGeoIPHeadlessRules(strings.TrimPrefix(options.LocalOptions.Path, "geoip:"))
-+			if err != nil {
-+				return nil, err
-+			}
-+			if err = ruleSet.reloadRules(rules); err != nil {
-+				return nil, err
-+			}
-+			return ruleSet, nil
-+		}
-+		if strings.HasPrefix(options.LocalOptions.Path, "geosite:") {
-+			if nekoutils.GetGeoSiteHeadlessRules == nil {
-+				return nil, E.New("GeoSite rule callback is not initialized")
-+			}
-+			rules, err := nekoutils.GetGeoSiteHeadlessRules(strings.TrimPrefix(options.LocalOptions.Path, "geosite:"))
-+			if err != nil {
-+				return nil, err
-+			}
-+			if err = ruleSet.reloadRules(rules); err != nil {
-+				return nil, err
-+			}
-+			return ruleSet, nil
-+		}
- 		filePath := filemanager.BasePath(ctx, strings.ReplaceAll(options.LocalOptions.Path, C.RuleSetTagPlaceholder, tag))
- 		filePath, _ = filepath.Abs(filePath)
- 		err := ruleSet.reloadFile(filePath)
 diff --git a/experimental/clashapi/server_resources.go b/experimental/clashapi/server_resources.go
 index a5997ebea..e086295cf 100644
 --- a/experimental/clashapi/server_resources.go
@@ -576,6 +590,532 @@ index a5997ebea..e086295cf 100644
 -	return true
 +	return top != ""
  }
+diff --git a/protocol/group/selector.go b/protocol/group/selector.go
+index c3aaec5a9..0c89a7cb4 100644
+--- a/protocol/group/selector.go
++++ b/protocol/group/selector.go
+@@ -10,6 +10,7 @@ import (
+ 	"github.com/sagernet/sing-box/common/urltest"
+ 	C "github.com/sagernet/sing-box/constant"
+ 	"github.com/sagernet/sing-box/log"
++	"github.com/sagernet/sing-box/nekoutils"
+ 	"github.com/sagernet/sing-box/option"
+ 	"github.com/sagernet/sing/common"
+ 	E "github.com/sagernet/sing/common/exceptions"
+@@ -146,6 +147,9 @@ func (s *Selector) SelectOutbound(tag string) bool {
+ 		}
+ 	}
+ 	s.interruptGroup.Interrupt(s.interruptExternalConnections)
++	if nekoutils.Selector_OnProxySelected != nil {
++		nekoutils.Selector_OnProxySelected(s.Tag(), tag)
++	}
+ 	if s.history != nil {
+ 		s.history.NotifyUpdated()
+ 	}
+diff --git a/protocol/vless/outbound.go b/protocol/vless/outbound.go
+index c0ece0a2d..2e08eceb6 100644
+--- a/protocol/vless/outbound.go
++++ b/protocol/vless/outbound.go
+@@ -92,11 +92,15 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
+ 			return nil, E.New("unknown packet encoding: ", *options.PacketEncoding)
+ 		}
+ 	}
++	multiplexOptions := common.PtrValueOrDefault(options.Multiplex)
++	if multiplexOptions.Enabled {
++		options.Flow = ""
++	}
+ 	outbound.client, err = vless.NewClient(options.UUID, options.Flow, logger)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+-	outbound.multiplexDialer, err = mux.NewClientWithOptions((*vlessDialer)(outbound), logger, common.PtrValueOrDefault(options.Multiplex))
++	outbound.multiplexDialer, err = mux.NewClientWithOptions((*vlessDialer)(outbound), logger, multiplexOptions)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+diff --git a/route/rule/rule_set_local.go b/route/rule/rule_set_local.go
+index 9d5d21e83..a0ee65b88 100644
+--- a/route/rule/rule_set_local.go
++++ b/route/rule/rule_set_local.go
+@@ -11,6 +11,7 @@ import (
+ 	"github.com/sagernet/sing-box/adapter"
+ 	"github.com/sagernet/sing-box/common/srs"
+ 	C "github.com/sagernet/sing-box/constant"
++	"github.com/sagernet/sing-box/nekoutils"
+ 	"github.com/sagernet/sing-box/option"
+ 	"github.com/sagernet/sing/common"
+ 	E "github.com/sagernet/sing/common/exceptions"
+@@ -54,6 +55,32 @@ func NewLocalRuleSet(ctx context.Context, logger logger.Logger, tag string, opti
+ 			return nil, err
+ 		}
+ 	} else {
++		if strings.HasPrefix(options.LocalOptions.Path, "geoip:") {
++			if nekoutils.GetGeoIPHeadlessRules == nil {
++				return nil, E.New("GeoIP rule callback is not initialized")
++			}
++			rules, err := nekoutils.GetGeoIPHeadlessRules(strings.TrimPrefix(options.LocalOptions.Path, "geoip:"))
++			if err != nil {
++				return nil, err
++			}
++			if err = ruleSet.reloadRules(rules); err != nil {
++				return nil, err
++			}
++			return ruleSet, nil
++		}
++		if strings.HasPrefix(options.LocalOptions.Path, "geosite:") {
++			if nekoutils.GetGeoSiteHeadlessRules == nil {
++				return nil, E.New("GeoSite rule callback is not initialized")
++			}
++			rules, err := nekoutils.GetGeoSiteHeadlessRules(strings.TrimPrefix(options.LocalOptions.Path, "geosite:"))
++			if err != nil {
++				return nil, err
++			}
++			if err = ruleSet.reloadRules(rules); err != nil {
++				return nil, err
++			}
++			return ruleSet, nil
++		}
+ 		filePath := filemanager.BasePath(ctx, strings.ReplaceAll(options.LocalOptions.Path, C.RuleSetTagPlaceholder, tag))
+ 		filePath, _ = filepath.Abs(filePath)
+ 		err := ruleSet.reloadFile(filePath)
+diff --git a/common/tls/certificate_options.go b/common/tls/certificate_options.go
+new file mode 100644
+--- /dev/null
++++ b/common/tls/certificate_options.go
+@@ -0,0 +1,36 @@
++package tls
++
++import (
++	"crypto/sha256"
++
++	"github.com/sagernet/sing-box/option"
++	E "github.com/sagernet/sing/common/exceptions"
++)
++
++// Empty optional values do not select a verification method. Work on a copy;
++// callers retain the original configuration for editing and export.
++func effectiveCertificateOptions(options option.OutboundTLSOptions) (option.OutboundTLSOptions, error) {
++	if options.Certificate != nil {
++		certificates := make([]string, 0, len(options.Certificate))
++		for _, certificate := range options.Certificate {
++			if certificate != "" {
++				certificates = append(certificates, certificate)
++			}
++		}
++		options.Certificate = certificates
++	}
++	if options.CertificatePublicKeySHA256 != nil {
++		pins := make([][]byte, 0, len(options.CertificatePublicKeySHA256))
++		for _, pin := range options.CertificatePublicKeySHA256 {
++			if len(pin) == 0 {
++				continue
++			}
++			if (options.Reality == nil || !options.Reality.Enabled) && len(pin) != sha256.Size {
++				return options, E.New("certificate_public_key_sha256: each non-empty pin must be 32 bytes")
++			}
++			pins = append(pins, pin)
++		}
++		options.CertificatePublicKeySHA256 = pins
++	}
++	return options, nil
++}
+diff --git a/common/tls/certificate_compatibility_test.go b/common/tls/certificate_compatibility_test.go
+new file mode 100644
+--- /dev/null
++++ b/common/tls/certificate_compatibility_test.go
+@@ -0,0 +1,392 @@
++//go:build with_utls && with_quic
++
++package tls
++
++import (
++	"bytes"
++	"context"
++	"crypto/ecdsa"
++	"crypto/elliptic"
++	"crypto/rand"
++	"crypto/sha256"
++	stdtls "crypto/tls"
++	"crypto/x509"
++	"crypto/x509/pkix"
++	"encoding/pem"
++	"errors"
++	"math/big"
++	"net"
++	"runtime"
++	"strings"
++	"testing"
++	"time"
++
++	"github.com/sagernet/quic-go"
++	"github.com/sagernet/sing-box/option"
++	qtls "github.com/sagernet/sing-quic"
++	"github.com/sagernet/sing/common/logger"
++)
++
++type compatibilityCertificate struct {
++	pair stdtls.Certificate
++	pem  string
++	key  string
++	pin  []byte
++}
++
++func compatibilityCert(t *testing.T, parent *compatibilityCertificate) compatibilityCertificate {
++	t.Helper()
++	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
++	if err != nil {
++		t.Fatal(err)
++	}
++	template := &x509.Certificate{SerialNumber: big.NewInt(time.Now().UnixNano()),
++		Subject: pkix.Name{CommonName: "tls-test.invalid"}, DNSNames: []string{"tls-test.invalid"},
++		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour),
++		IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
++		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}}
++	issuer, signingKey := template, key
++	if parent != nil {
++		issuer, err = x509.ParseCertificate(parent.pair.Certificate[0])
++		if err != nil {
++			t.Fatal(err)
++		}
++		signingKey = parent.pair.PrivateKey.(*ecdsa.PrivateKey)
++	}
++	der, err := x509.CreateCertificate(rand.Reader, template, issuer, &key.PublicKey, signingKey)
++	if err != nil {
++		t.Fatal(err)
++	}
++	keyDER, err := x509.MarshalECPrivateKey(key)
++	if err != nil {
++		t.Fatal(err)
++	}
++	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
++	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
++	pair, err := stdtls.X509KeyPair(certPEM, keyPEM)
++	if err != nil {
++		t.Fatal(err)
++	}
++	cert, err := x509.ParseCertificate(der)
++	if err != nil {
++		t.Fatal(err)
++	}
++	sum := sha256.Sum256(cert.RawSubjectPublicKeyInfo)
++	return compatibilityCertificate{pair, string(certPEM), string(keyPEM), sum[:]}
++}
++
++func compatibilityOptions(engine string) option.OutboundTLSOptions {
++	options := option.OutboundTLSOptions{Enabled: true, ServerName: "tls-test.invalid", ALPN: []string{"tls-audit"}}
++	if engine == "utls" {
++		options.UTLS = &option.OutboundUTLSOptions{Enabled: true, Fingerprint: "chrome"}
++	}
++	if engine == "windows" {
++		options.Engine = "windows"
++	}
++	return options
++}
++
++func compatibilityHandshake(t *testing.T, config Config, cert compatibilityCertificate, clientCA *x509.CertPool) (string, error) {
++	t.Helper()
++	a, b := net.Pipe()
++	defer a.Close()
++	defer b.Close()
++	a.SetDeadline(time.Now().Add(3 * time.Second))
++	b.SetDeadline(time.Now().Add(3 * time.Second))
++	type result struct {
++		name string
++		err  error
++	}
++	done := make(chan result, 1)
++	go func() {
++		serverConfig := &stdtls.Config{Certificates: []stdtls.Certificate{cert.pair}, NextProtos: []string{"tls-audit"}}
++		var name string
++		serverConfig.GetConfigForClient = func(info *stdtls.ClientHelloInfo) (*stdtls.Config, error) { name = info.ServerName; return nil, nil }
++		if clientCA != nil {
++			serverConfig.ClientAuth = stdtls.RequireAndVerifyClientCert
++			serverConfig.ClientCAs = clientCA
++		}
++		server := stdtls.Server(b, serverConfig)
++		err := server.Handshake()
++		if err == nil && server.ConnectionState().NegotiatedProtocol != "tls-audit" {
++			err = errors.New("ALPN changed")
++		}
++		if err == nil {
++			_, err = server.Write([]byte{1})
++		}
++		done <- result{name, err}
++	}()
++	conn, err := ClientHandshake(context.Background(), a, config)
++	if err == nil {
++		var data [1]byte
++		_, err = conn.Read(data[:])
++	}
++	a.Close()
++	server := <-done
++	if err == nil {
++		err = server.err
++	}
++	return server.name, err
++}
++
++func TestCertificateCompatibilityHandshake(t *testing.T) {
++	root := compatibilityCert(t, nil)
++	untrusted := compatibilityCert(t, nil)
++	issued := compatibilityCert(t, &root)
++	engines := []string{"std", "utls"}
++	if runtime.GOOS == "windows" {
++		engines = append(engines, "windows")
++	}
++	for _, engine := range engines {
++		for _, disable := range []bool{false, true} {
++			if engine == "windows" && disable {
++				continue
++			}
++			for _, insecure := range []bool{false, true} {
++				for _, mode := range []string{"correct-pin-self", "wrong-pin-self", "correct-pin-issued", "wrong-pin-issued", "trusted-ca", "untrusted-ca", "wrong-host-ca", "empty-pin-trusted-ca"} {
++					name := engine + "/" + mode
++					if disable {
++						name += "/no-sni"
++					} else {
++						name += "/sni"
++					}
++					if insecure {
++						name += "/insecure"
++					} else {
++						name += "/verified"
++					}
++					t.Run(name, func(t *testing.T) {
++						options := compatibilityOptions(engine)
++						options.DisableSNI = disable
++						options.Insecure = insecure
++						cert := root
++						switch mode {
++						case "correct-pin-self", "wrong-pin-self":
++							options.CertificatePublicKeySHA256 = [][]byte{append([]byte(nil), root.pin...)}
++						case "correct-pin-issued", "wrong-pin-issued":
++							cert = issued
++							options.CertificatePublicKeySHA256 = [][]byte{append([]byte(nil), issued.pin...)}
++						case "trusted-ca", "wrong-host-ca", "empty-pin-trusted-ca":
++							options.Certificate = []string{root.pem}
++						case "untrusted-ca":
++							options.Certificate = []string{untrusted.pem}
++						}
++						if mode == "empty-pin-trusted-ca" {
++							options.CertificatePublicKeySHA256 = [][]byte{{}}
++						}
++						if strings.HasPrefix(mode, "wrong-pin") {
++							options.CertificatePublicKeySHA256[0][0] ^= 0xff
++						}
++						if mode == "wrong-host-ca" {
++							options.ServerName = "wrong.invalid"
++						}
++						config, err := NewClient(context.Background(), logger.NOP(), "tls-test.invalid", options)
++						if err != nil {
++							t.Fatal(err)
++						}
++						expectedFailure := strings.HasPrefix(mode, "wrong-pin") || !insecure && (mode == "untrusted-ca" || mode == "wrong-host-ca")
++						sni, err := compatibilityHandshake(t, config, cert, nil)
++						if (err != nil) != expectedFailure {
++							t.Fatalf("unexpected authentication result: %v", err)
++						}
++						if strings.HasPrefix(mode, "wrong-pin") && (err == nil || !strings.Contains(err.Error(), "unrecognized remote public key")) {
++							t.Fatalf("failure was not a pin rejection: %v", err)
++						}
++						if disable && sni != "" {
++							t.Fatal("disable_sni sent SNI")
++						}
++						if !disable && sni != options.ServerName {
++							t.Fatal("SNI changed")
++						}
++						if engine == "std" {
++							clone := config.Clone()
++							clone.SetServerName(options.ServerName)
++							_, err = compatibilityHandshake(t, clone, cert, nil)
++							if (err != nil) != expectedFailure {
++								t.Fatalf("clone changed verification: %v", err)
++							}
++						}
++					})
++				}
++			}
++		}
++	}
++}
++
++func TestCertificateCompatibilityValues(t *testing.T) {
++	cert := compatibilityCert(t, nil)
++	for _, engine := range []string{"std", "utls", "windows-options"} {
++		for _, mode := range []string{"empty-ca", "empty-ca-list", "empty-path", "empty-pin", "multiple-pins", "bad-2", "bad-31", "good-32", "bad-33", "conflict", "conflict-path"} {
++			t.Run(engine+"/"+mode, func(t *testing.T) {
++				options := compatibilityOptions(engine)
++				options.CertificatePublicKeySHA256 = [][]byte{cert.pin}
++				switch mode {
++				case "empty-ca":
++					options.Certificate = []string{""}
++				case "empty-ca-list":
++					options.Certificate = []string{"", ""}
++				case "empty-path":
++					options.CertificatePath = ""
++				case "empty-pin":
++					options.CertificatePublicKeySHA256 = [][]byte{{}}
++					options.Certificate = []string{cert.pem}
++				case "multiple-pins":
++					options.CertificatePublicKeySHA256 = [][]byte{bytes.Repeat([]byte{2}, 32), cert.pin}
++				case "bad-2":
++					options.CertificatePublicKeySHA256 = [][]byte{make([]byte, 2)}
++				case "bad-31":
++					options.CertificatePublicKeySHA256 = [][]byte{make([]byte, 31)}
++				case "good-32":
++					options.CertificatePublicKeySHA256 = [][]byte{make([]byte, 32)}
++				case "bad-33":
++					options.CertificatePublicKeySHA256 = [][]byte{make([]byte, 33)}
++				case "conflict":
++					options.Certificate = []string{cert.pem}
++				case "conflict-path":
++					options.CertificatePath = "not-read-for-conflict.pem"
++				}
++				beforePins := len(options.CertificatePublicKeySHA256)
++				beforeCerts := len(options.Certificate)
++				var err error
++				if engine == "windows-options" {
++					_, err = ValidateSystemTLSOptions(context.Background(), options, "Windows TLS engine")
++				} else {
++					_, err = NewClient(context.Background(), logger.NOP(), "tls-test.invalid", options)
++				}
++				fail := strings.HasPrefix(mode, "bad-") || strings.HasPrefix(mode, "conflict")
++				if (err != nil) != fail {
++					t.Fatalf("unexpected validation: %v", err)
++				}
++				if beforePins != len(options.CertificatePublicKeySHA256) || beforeCerts != len(options.Certificate) {
++					t.Fatal("input options mutated")
++				}
++			})
++		}
++	}
++}
++
++func TestCertificateCompatibilityMTLS(t *testing.T) {
++	server := compatibilityCert(t, nil)
++	clientCA := compatibilityCert(t, nil)
++	client := compatibilityCert(t, &clientCA)
++	roots := x509.NewCertPool()
++	roots.AppendCertsFromPEM([]byte(clientCA.pem))
++	for _, engine := range []string{"std", "utls"} {
++		t.Run(engine, func(t *testing.T) {
++			options := compatibilityOptions(engine)
++			options.DisableSNI = true
++			options.CertificatePublicKeySHA256 = [][]byte{server.pin}
++			options.ClientCertificate = []string{client.pem}
++			options.ClientKey = []string{client.key}
++			config, err := NewClient(context.Background(), logger.NOP(), "tls-test.invalid", options)
++			if err != nil {
++				t.Fatal(err)
++			}
++			if _, err = compatibilityHandshake(t, config, server, roots); err != nil {
++				t.Fatal(err)
++			}
++		})
++	}
++}
++
++func TestCertificateCompatibilityQUIC(t *testing.T) {
++	cert := compatibilityCert(t, nil)
++	for _, disable := range []bool{false, true} {
++		for _, insecure := range []bool{false, true} {
++			for _, correct := range []bool{false, true} {
++				name := "pin"
++				if disable {
++					name += "/no-sni"
++				} else {
++					name += "/sni"
++				}
++				if insecure {
++					name += "/insecure"
++				}
++				if correct {
++					name += "/correct"
++				} else {
++					name += "/wrong"
++				}
++				t.Run(name, func(t *testing.T) {
++					ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
++					defer cancel()
++					seen := make(chan string, 1)
++					serverTLS := &stdtls.Config{Certificates: []stdtls.Certificate{cert.pair}, NextProtos: []string{"tls-audit"}, GetConfigForClient: func(info *stdtls.ClientHelloInfo) (*stdtls.Config, error) {
++						select {
++						case seen <- info.ServerName:
++						default:
++						}
++						return nil, nil
++					}}
++					listener, err := quic.ListenAddr("127.0.0.1:0", serverTLS, &quic.Config{})
++					if err != nil {
++						t.Fatal(err)
++					}
++					defer listener.Close()
++					go func() {
++						conn, e := listener.Accept(ctx)
++						if e == nil {
++							<-ctx.Done()
++							conn.CloseWithError(0, "test finished")
++						}
++					}()
++					options := compatibilityOptions("std")
++					options.DisableSNI = disable
++					options.Insecure = insecure
++					options.CertificatePublicKeySHA256 = [][]byte{append([]byte(nil), cert.pin...)}
++					if !correct {
++						options.CertificatePublicKeySHA256[0][0] ^= 0xff
++					}
++					config, err := NewClient(ctx, logger.NOP(), "tls-test.invalid", options)
++					if err != nil {
++						t.Fatal(err)
++					}
++					raw, err := net.Dial("udp", listener.Addr().String())
++					if err != nil {
++						t.Fatal(err)
++					}
++					defer raw.Close()
++					conn, err := qtls.Dial(ctx, raw, config, &quic.Config{})
++					if (err == nil) != correct {
++						t.Fatalf("QUIC authentication result: %v", err)
++					}
++					if !correct && (err == nil || !strings.Contains(err.Error(), "unrecognized remote public key")) {
++						t.Fatalf("QUIC failure was not a pin rejection: %v", err)
++					}
++					if conn != nil {
++						conn.CloseWithError(0, "test finished")
++					}
++					sni := <-seen
++					if disable && sni != "" {
++						t.Fatal("QUIC sent disabled SNI")
++					}
++					if !disable && sni != options.ServerName {
++						t.Fatal("QUIC SNI changed")
++					}
++				})
++			}
++		}
++	}
++}
++
++func TestCertificateCompatibilitySystemRestrictions(t *testing.T) {
++	for _, name := range []string{"disable_sni", "utls", "reality", "ech"} {
++		t.Run(name, func(t *testing.T) {
++			options := compatibilityOptions("std")
++			switch name {
++			case "disable_sni":
++				options.DisableSNI = true
++			case "utls":
++				options.UTLS = &option.OutboundUTLSOptions{Enabled: true}
++			case "reality":
++				options.Reality = &option.OutboundRealityOptions{Enabled: true}
++			case "ech":
++				options.ECH = &option.OutboundECHOptions{Enabled: true}
++			}
++			if _, err := ValidateSystemTLSOptions(context.Background(), options, "Windows TLS engine"); err == nil {
++				t.Fatal("system restriction removed")
++			}
++		})
++	}
++}
 diff --git a/experimental/clashapi/server_resources_security_test.go b/experimental/clashapi/server_resources_security_test.go
 new file mode 100644
 --- /dev/null

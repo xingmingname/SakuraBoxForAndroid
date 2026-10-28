@@ -33,7 +33,6 @@ class ProtocolOptionsTest {
         bean.protocolOptionsJson = ProtocolOptions.set(ProtocolOptions.parse(bean.protocolOptionsJson), field, input).toString()
     }
     private fun fixture(name: String, bean: AbstractBean, outbound: SingBoxOptions.SingBoxOption) {
-        ProtocolOptions.validate(bean, ProtocolOptions.parse(bean.protocolOptionsJson))
         // Same existing override boundary as ConfigBuilder's internal & external outbound path.
         ProtocolOptions.applyTo(outbound, bean)
         outbound._hack_custom_config = bean.customOutboundJson
@@ -143,26 +142,27 @@ class ProtocolOptionsTest {
         assertEquals(before, root.toString())
     }
 
-    @Test fun pinLengthAndCertificateConflictsAreChecked() {
-        val bean = any()
-        val f = ProtocolOptions.fields(bean).first { it.path == "tls.certificate_public_key_sha256" }
-        for (v in listOf("not-base64", Base64.getEncoder().encodeToString(ByteArray(31)))) {
-            assertThrows(IllegalArgumentException::class.java) { ProtocolOptions.value(f, v) }
+    @Test fun pinsAndCertificatesAreNotRejectedBeforeSaving() {
+        val bean = any().apply { certificates = "synthetic-ca" }
+        val field = ProtocolOptions.fields(bean).first { it.path == "tls.certificate_public_key_sha256" }
+        for (value in listOf("not-base64", Base64.getEncoder().encodeToString(ByteArray(31)), Base64.getEncoder().encodeToString(ByteArray(32)))) {
+            configure(bean, field.path, value)
+            val copy = bean.clone()
+            assertEquals(value, ProtocolOptions.text(ProtocolOptions.parse(copy.protocolOptionsJson), field))
+            val out = ProtocolOptions.validationOutbound(copy, ProtocolOptions.parse(copy.protocolOptionsJson))!!.getAsJsonObject("tls")
+            assertEquals("synthetic-ca", out["certificate"].asString)
+            assertEquals(value, out["certificate_public_key_sha256"].asJsonArray.single().asString)
         }
-        configure(bean, f.path, Base64.getEncoder().encodeToString(ByteArray(32) { 7 }))
-        ProtocolOptions.validate(bean, ProtocolOptions.parse(bean.protocolOptionsJson))
-        bean.certificates = "synthetic-ca"
-        assertThrows(IllegalArgumentException::class.java) { ProtocolOptions.validate(bean, ProtocolOptions.parse(bean.protocolOptionsJson)) }
-        bean.certificates = ""
-        fixture("anytls-pins", bean, buildSingBoxOutboundAnyTLSBean(bean))
     }
 
-    @Test fun tlsVersionOrderingAndRealityEchConflictsAreRejected() {
+    @Test fun tlsVersionOrderingIsStoredWithoutNormalization() {
         val bean = any()
         configure(bean, "tls.min_version", "1.3"); configure(bean, "tls.max_version", "1.2")
-        assertThrows(IllegalArgumentException::class.java) { ProtocolOptions.validate(bean, ProtocolOptions.parse(bean.protocolOptionsJson)) }
-        val vless = VMessBean().apply { initializeDefaultValues(); alterId = -1; enableECH = true; realityPubKey = "synthetic" }
-        assertThrows(IllegalArgumentException::class.java) { ProtocolOptions.validate(vless, ProtocolOptions.parse("")) }
+        val copy = bean.clone()
+        val tls = ProtocolOptions.validationOutbound(copy, ProtocolOptions.parse(copy.protocolOptionsJson))!!.getAsJsonObject("tls")
+        assertEquals("1.3", tls["min_version"].asString)
+        assertEquals("1.2", tls["max_version"].asString)
+        assertEquals(bean.protocolOptionsJson, copy.protocolOptionsJson)
     }
 
     @Test fun anyTLSJsonImportRemainsEditableWithoutLosingExtraSettings() {
@@ -207,15 +207,14 @@ class ProtocolOptionsTest {
         fixture("hysteria2", bean, out)
     }
 
-    @Test fun tuicUdpOverStreamConflictDoesNotSilentlyOverrideRelay() {
-        val bean = TuicBean().apply { initializeDefaultValues(); uuid = "00000000-0000-4000-8000-000000000001"; token = "synthetic"; sni = "example.invalid" }
+    @Test fun tuicAdvancedChoicesArePassedThroughWithoutCrossFieldSaveChecks() {
+        val bean = TuicBean().apply { initializeDefaultValues(); udpRelayMode = "quic" }
         configure(bean, "udp_over_stream", "true"); configure(bean, "heartbeat", "10s")
-        ProtocolOptions.validate(bean, ProtocolOptions.parse(bean.protocolOptionsJson))
-        bean.udpRelayMode = "quic"
-        assertThrows(IllegalArgumentException::class.java) { ProtocolOptions.validate(bean, ProtocolOptions.parse(bean.protocolOptionsJson)) }
-        bean.udpRelayMode = "native"
-        val out = buildSingBoxOutboundTuicBean(bean, false)
-        fixture("tuic", bean, out)
+        val copy = bean.clone()
+        val out = buildSingBoxOutboundTuicBean(copy, false).also { ProtocolOptions.applyTo(it, copy) }.asMap()
+        assertEquals(true, out["udp_over_stream"])
+        assertEquals("quic", out["udp_relay_mode"])
+        assertEquals(bean.protocolOptionsJson, copy.protocolOptionsJson)
     }
 
     @Test fun vmessFlagsAndTlsSurviveFinalSerialization() {
@@ -234,23 +233,25 @@ class ProtocolOptionsTest {
         assertFalse(ProtocolOptions.fields(bean).any { it.path == "transport.ping_timeout" })
     }
 
-    @Test fun geckoObfuscationRequiresPasswordAndConsistentPacketSizes() {
-        val bean = HysteriaBean().apply { initializeDefaultValues(); sni="example.invalid"; authPayload="synthetic" }
-        configure(bean,"obfs.type","gecko"); configure(bean,"obfs.min_packet_size","20"); configure(bean,"obfs.max_packet_size","80")
-        assertThrows(IllegalArgumentException::class.java) { ProtocolOptions.validate(bean,ProtocolOptions.parse(bean.protocolOptionsJson)) }
-        bean.obfuscation="synthetic-obfs"
-        ProtocolOptions.validate(bean,ProtocolOptions.parse(bean.protocolOptionsJson))
-        fixture("hysteria2-gecko",bean,buildSingBoxOutboundHysteriaBean(bean,false))
-        configure(bean,"obfs.max_packet_size","10")
-        assertThrows(IllegalArgumentException::class.java) { ProtocolOptions.validate(bean,ProtocolOptions.parse(bean.protocolOptionsJson)) }
+    @Test fun geckoOptionsKeepUserValuesWithoutCrossFieldSaveChecks() {
+        val bean = HysteriaBean().apply { initializeDefaultValues(); protocolVersion = 2; serverPorts = "443" }
+        configure(bean,"obfs.type","gecko"); configure(bean,"obfs.min_packet_size","80"); configure(bean,"obfs.max_packet_size","10")
+        val copy = bean.clone()
+        val out = buildSingBoxOutboundHysteriaBean(copy, false).also { ProtocolOptions.applyTo(it, copy) }.asMap()
+        val obfs = out["obfs"] as Map<*, *>
+        assertEquals("gecko", obfs["type"])
+        assertEquals(80L, (obfs["min_packet_size"] as Number).toLong())
+        assertEquals(10L, (obfs["max_packet_size"] as Number).toLong())
+        assertEquals(bean.protocolOptionsJson, copy.protocolOptionsJson)
     }
 
-    @Test fun tlsCurvesUseOnlyValuesSupportedByLockedCore() {
+    @Test fun tlsCurveInputIsPreservedWithoutInventingCoreSupport() {
         val bean=any()
         configure(bean,"tls.curve_preferences","X25519\nP256")
-        configure(bean,"tls.min_version","1.2")
         fixture("anytls-curves",bean,buildSingBoxOutboundAnyTLSBean(bean))
-        assertThrows(IllegalArgumentException::class.java) { configure(bean,"tls.curve_preferences","invented-curve") }
+        configure(bean,"tls.curve_preferences","invented-curve")
+        val out=ProtocolOptions.validationOutbound(bean, ProtocolOptions.parse(bean.protocolOptionsJson))!!
+        assertEquals("invented-curve", ProtocolOptions.get(out,"tls.curve_preferences")!!.asJsonArray.single().asString)
     }
 
     @Test fun metadataCannotInjectSettingsOrOverflowTheWireLength() {
@@ -304,7 +305,7 @@ class ProtocolOptionsTest {
             HysteriaBean(), TuicBean(), ShadowsocksBean(), SSHBean(), WireGuardBean(),
             moe.matsuri.nb4a.proxy.shadowtls.ShadowTLSBean(), moe.matsuri.nb4a.proxy.config.ConfigBean())
         for (bean in beans) {
-            bean.initializeDefaultValues(); bean.name="legacy-synthetic"; bean.customOutboundJson="""{"connect_timeout":"15s"}"""
+            bean.initializeDefaultValues(); bean.name="legacy-synthetic"; bean.jsonMode=NodeJson.LEGACY; bean.jsonLegacyMask=1; bean.customOutboundJson="""{"connect_timeout":"15s"}"""
             val stream=java.io.ByteArrayOutputStream()
             val output=com.esotericsoftware.kryo.io.ByteBufferOutput(stream)
             bean.serialize(output);output.writeInt(1);output.writeString(bean.name)

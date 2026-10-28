@@ -105,7 +105,7 @@ object Util {
         val o = mutableMapOf<String, Any?>()
         m.forEach {
             if (it.key is String) {
-                o[it.key as String] = it.value as Any
+                o[it.key as String] = it.value
             }
         }
         return o

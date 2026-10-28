@@ -1,0 +1,7 @@
+<resources>
+    <string name="mtls_client_certificate">mTLS 客户端证书</string>
+    <string name="mtls_client_key">mTLS 客户端私钥</string>
+    <string name="mtls_unset">未设置</string>
+    <string name="mtls_set">已设置</string>
+    <string name="mtls_pem_help">输入 PEM 文本并保留 BEGIN 和 END 边界及换行 已设置仅表示存在输入</string>
+</resources>

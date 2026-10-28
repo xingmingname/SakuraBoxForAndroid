@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="json_manage">Manage node JSON</string>
+    <string name="json_manage_active">Manage node JSON (enabled)</string>
+    <string name="json_enable">Enable JSON mode</string>
+    <string name="json_disable">Disable JSON mode</string>
+    <string name="json_full">Custom configuration JSON</string>
+    <string name="json_outbound">Custom outbound JSON</string>
+    <string name="json_choose">Choose JSON mode</string>
+    <string name="json_choose_outbound">Choose the outbound to take over</string>
+    <string name="json_saved_reconnect">Saved. Refresh the node list and reconnect to apply the configuration.</string>
+    <string name="json_enable_title">Enable JSON mode?</string>
+    <string name="json_enable_message">Saving this configuration will enable its JSON mode.</string>
+    <string name="json_switch_message">This will replace the currently active JSON source. Both saved JSON documents will be kept.</string>
+    <string name="json_save_enable">Save and enable</string>
+    <string name="json_unsaved_title">Save configuration changes?</string>
+    <string name="json_unsaved_message">The JSON configuration has unsaved changes.</string>
+    <string name="json_continue">Continue editing</string>
+    <string name="json_discard">Discard</string>
+    <string name="json_save">Save</string>
+    <string name="json_check_failed">Configuration check failed</string>
+    <string name="json_error_detail">The previous configuration and mode were not changed.\n\n%1$s\n\nSYNTAX: JSON syntax; STRUCTURE: JSON shape; UNSUPPORTED: core field/type; MISSING: required value; REFERENCE: tag/target; ENVIRONMENT: local dependency; CORE: native check.\n\nJSON_PLUGIN_PREVIEW: this snapshot uses a temporary external-plugin port. Replace it with a self-contained native configuration before enabling JSON mode.</string>
+    <string name="json_copy_subscription">Full configuration takeover will create an independent node in a local group. The subscription node and its refresh behavior will remain unchanged.</string>
+    <string name="json_copy_done">Saved as an independent local node. Select it in a local group to connect.</string>
+    <string name="json_conflict">The node changed or was removed. Reopen the editor before trying again.</string>
+    <string name="json_save_node_first">Save the node before opening its JSON editor.</string>
+    <string name="json_test_target">JSON test target is ambiguous or has no server address. Set route.final to a specific server outbound; group targets cannot be tested here.</string>
+</resources>

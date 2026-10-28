@@ -1,7 +1,7 @@
 # SakuraBox 源码构建
 
-正式发布准备版本：应用 `1.0.1`（versionCode 235），核心 `1.14.3-sakura`。
-发布标题约定 `Sakurabox-1.0.1`，tag `v1.0.1`。本文不是已发布声明。
+正式候选版本：应用 `1.0.2`（versionCode 240），核心 `1.14.3-sakura`。
+发布标题约定 `Sakurabox-1.0.2`，tag `v1.0.2`。该 Tag 仅为预定名称 本轮未创建 Tag 本文不是已发布声明。
 
 ## 工具和依赖
 
@@ -46,6 +46,8 @@ bash ./run lib core
 先运行 `bash buildScript/lib/core/get_source.sh` 准备固定依赖；再使用本地缓存，不包含在源码仓库中。
 PowerShell 工具接受明确环境参数，没有开发者专用 SDK、缓存或报告路径。
 
+离线 Android 入口要求先保护所选 Gradle 8.10.2 User Home；选择已有下载依赖的专用目录，通过 `GRADLE_USER_HOME` 或 `-GradleUserHome` 指定，运行 `./tools/install-gradle-cache-policy.ps1 -GradleUserHome $env:GRADLE_USER_HOME` 安装一次经过审查的禁用自动回收策略。没有匹配策略时入口会停止，不会把 `--offline` 或 `--no-daemon` 当作缓存保护。Go工具默认跨任务复用缓存，也可传入已有可信 `-SharedCache`；仅显式 `-ColdCache` 创建任务专属冷缓存。分类保留和人工清理规则见 [tools/BUILD_CACHE.md](tools/BUILD_CACHE.md)。
+
 ```powershell
 ./tools/offline-native-build.ps1 -GoRoot $env:GOROOT -RunDirectory .local-builds/native-check -OutputName libcore-sing-box-1.14.3-sakura-sr01.aar -SharedCache $env:GOCACHE -ModuleCache $env:GOMODCACHE
 ./tools/offline-android-build.ps1 -CoreAar .local-builds/native-check/libcore-sing-box-1.14.3-sakura-sr01.aar -RunDirectory .local-builds/android-check -Tasks testOssDebugUnitTest,assembleOssDebug,processOssReleaseMainManifest
@@ -62,7 +64,7 @@ python tools/check-shortcut-security.py
 
 ## 包内验证
 
-四 ABI Debug APK 位于独立输出目录或 `app/build/outputs/apk/oss/debug`，命名 `SakuraBox-1.0.1-<ABI>-debug.apk`。
+四 ABI Debug APK 位于独立输出目录或 `app/build/outputs/apk/oss/debug`，命名 `SakuraBox-1.0.2-<ABI>-debug.apk`。
 `tools/verify-artifacts.py` 为 Windows Android 工具链的严格核验器，要求传入自己可信的证书摘要：
 
 ```powershell
@@ -80,7 +82,7 @@ python tools/verify-artifacts.py --apk-directory <APK目录> --aar <本次AAR> -
 不要使用旧上游历史里公开的签名文件；删除当前文件不会删除已有 Git 历史。
 
 GitHub workflow 只支持手动、只读构建验证，没有上传/发布步骤。创建提交、push、Release 和上传 APK 需另获维护者明确批准。
-公开前还需真机验证：安装与共存、关于页 1.0.1、VPN 撤销与切网、Hy2/VLESS、独立 URL Test A/B 隔离、YACD 认证、导入配额、快捷方式、SFA 导出。
+公开前还需真机验证：安装与共存、关于页 1.0.2、VPN 撤销与切网、Hy2/VLESS、独立 URL Test A/B 隔离、YACD 认证、导入配额、快捷方式、SFA 导出。
 
 
 ### 独立 Release 签名

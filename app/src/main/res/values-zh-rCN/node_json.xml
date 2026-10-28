@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="json_manage">节点 JSON 管理</string>
+    <string name="json_manage_active">节点 JSON 管理（已启用）</string>
+    <string name="json_enable">启用 JSON 模式</string>
+    <string name="json_disable">禁用 JSON 模式</string>
+    <string name="json_full">自定义配置 JSON</string>
+    <string name="json_outbound">自定义出站 JSON</string>
+    <string name="json_choose">选择 JSON 模式</string>
+    <string name="json_choose_outbound">选择要接管的出站</string>
+    <string name="json_saved_reconnect">配置已保存。请刷新节点列表并重新连接以应用配置。</string>
+    <string name="json_enable_title">启用 JSON 模式？</string>
+    <string name="json_enable_message">保存该配置后将启用该项的 JSON 模式。</string>
+    <string name="json_switch_message">将切换当前生效的 JSON 配置来源。两份已保存的 JSON 均会保留。</string>
+    <string name="json_save_enable">保存并启用</string>
+    <string name="json_unsaved_title">是否保存修改配置？</string>
+    <string name="json_unsaved_message">当前 JSON 配置存在未保存的修改。</string>
+    <string name="json_continue">继续编辑</string>
+    <string name="json_discard">不保存</string>
+    <string name="json_save">保存</string>
+    <string name="json_check_failed">配置校验失败</string>
+    <string name="json_error_detail">上次配置及当前模式未改变。\n\n%1$s\n\nSYNTAX：JSON 语法；STRUCTURE：结构；UNSUPPORTED：核心不支持的字段或类型；MISSING：缺少必要参数；REFERENCE：引用或测试目标；ENVIRONMENT：本地依赖条件；CORE：核心配置检查。\n\nJSON_PLUGIN_PREVIEW：此快照依赖外部插件的临时端口，启用前请改为可独立运行的原生配置。</string>
+    <string name="json_copy_subscription">完整配置接管将复制为本地分组中的独立节点，原订阅节点及其刷新行为保持不变。</string>
+    <string name="json_copy_done">已保存为独立本地节点，请在本地分组中选择该节点连接。</string>
+    <string name="json_conflict">节点已被其他操作修改或删除，请重新打开编辑器。</string>
+    <string name="json_save_node_first">请先保存节点，再打开 JSON 编辑器。</string>
+    <string name="json_test_target">无法确定 JSON 的测速目标或服务器地址。请将 route.final 指向具体服务器出站；此处不自动选择组内目标。</string>
+</resources>

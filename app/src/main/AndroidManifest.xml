@@ -5,9 +5,11 @@
 
     <uses-sdk tools:overrideLibrary="com.google.zxing.client.android, com.blacksquircle.ui.editorkit" />
 
+    <!-- Keep the existing signature permission name compatible with installed clients. -->
     <permission
         android:name="${applicationId}.SERVICE"
-        android:protectionLevel="signature" />
+        android:protectionLevel="signature"
+        tools:ignore="PermissionNamingConvention" />
 
     <uses-permission android:name="${applicationId}.SERVICE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -21,13 +23,16 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
 
+    <!-- Per-app VPN routing needs the complete installed-app chooser, not a fixed queries list. -->
     <uses-permission
         android:name="android.permission.QUERY_ALL_PACKAGES"
-        tools:ignore="PackageVisibilityPolicy" />
+        tools:ignore="PackageVisibilityPolicy,QueryAllPackagesPermission" />
     <uses-permission android:name="com.android.permission.GET_INSTALLED_APPS" />
 
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <uses-feature android:name="android.hardware.wifi" android:required="false" />
 
     <uses-feature
         android:name="android.software.leanback"
@@ -51,7 +56,6 @@
     <application
         android:name="io.nekohasekai.sagernet.SagerNet"
         android:allowBackup="true"
-        android:autoRevokePermissions="allowed"
         android:banner="@mipmap/ic_launcher"
         android:dataExtractionRules="@xml/backup_rules"
         android:fullBackupContent="@xml/backup_descriptor"

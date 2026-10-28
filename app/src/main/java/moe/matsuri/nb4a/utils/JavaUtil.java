@@ -120,7 +120,7 @@ public class JavaUtil {
                 createFile(file, file.delete());
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LogRedactor.printStackTrace(e);
             boolean deleted = false;
             if (file.exists()) {
                 deleted = file.delete();
@@ -135,7 +135,7 @@ public class JavaUtil {
                 file.createNewFile();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LogRedactor.printStackTrace(e);
         }
     }
 

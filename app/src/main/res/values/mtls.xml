@@ -1,0 +1,7 @@
+<resources>
+    <string name="mtls_client_certificate">mTLS client certificate</string>
+    <string name="mtls_client_key">mTLS client private key</string>
+    <string name="mtls_unset">Not set</string>
+    <string name="mtls_set">Set</string>
+    <string name="mtls_pem_help">Enter PEM text preserving its BEGIN and END markers and line breaks Set only indicates that input exists</string>
+</resources>

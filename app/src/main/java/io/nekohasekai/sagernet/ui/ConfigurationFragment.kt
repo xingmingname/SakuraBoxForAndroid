@@ -702,6 +702,7 @@ class ConfigurationFragment @JvmOverloads constructor(
 
         val mainJob = runOnDefaultDispatcher {
             val profilesList = SagerDatabase.proxyDao.getByGroup(group.id).filter {
+                if (!icmpPing && it.requireBean().jsonMode in 1..2) return@filter true
                 if (icmpPing) {
                     if (it.requireBean().canICMPing()) {
                         return@filter true
@@ -725,9 +726,10 @@ class ConfigurationFragment @JvmOverloads constructor(
                             if (icmpPing) {
                                 // removed
                             } else {
+                                val target = io.nekohasekai.sagernet.fmt.NodeJson.tcpTarget(profile.requireBean())
                                 profile.ping = measureTcpPing(
-                                    profile.requireBean().serverAddress,
-                                    profile.requireBean().serverPort,
+                                    target.first,
+                                    target.second,
                                     3000,
                                     { TestNetworkContext.acquireForTcp(it) },
                                     SystemClock::elapsedRealtime,
@@ -738,7 +740,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                             }
                         } catch (e: Exception) {
                             if (!isActive) break
-                            val message = e.readableMessage
+                            val message = if (e.message == "JSON_TEST_TARGET") getString(R.string.json_test_target) else e.readableMessage
 
                             if (icmpPing) {
                                 profile.status = 2
@@ -795,7 +797,8 @@ class ConfigurationFragment @JvmOverloads constructor(
                 testJobs.forEach { it.cancel() }
                 test.results.forEach {
                     try {
-                        ProfileManager.updateProfile(it)
+                        SagerDatabase.proxyDao.updateTestResult(it.id, it.status, it.ping, it.error)
+                        ProfileManager.postUpdate(it.id)
                     } catch (e: Exception) {
                         Logs.w(e)
                     }
@@ -842,7 +845,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                             profile.error = e.readableMessage
                         } catch (e: Exception) {
                             profile.status = 3
-                            profile.error = e.readableMessage
+                            profile.error = if (e.message == "JSON_TEST_TARGET") getString(R.string.json_test_target) else e.readableMessage
                         }
 
                         test.update(profile)
@@ -864,7 +867,8 @@ class ConfigurationFragment @JvmOverloads constructor(
                 testJobs.forEach { it.cancel() }
                 test.results.forEach {
                     try {
-                        ProfileManager.updateProfile(it)
+                        SagerDatabase.proxyDao.updateTestResult(it.id, it.status, it.ping, it.error)
+                        ProfileManager.postUpdate(it.id)
                     } catch (e: Exception) {
                         Logs.w(e)
                     }
@@ -1216,7 +1220,7 @@ class ConfigurationFragment @JvmOverloads constructor(
             }
 
             var configurationIdList: MutableList<Long> = mutableListOf()
-            val configurationList = HashMap<Long, ProxyEntity>()
+            internal val configurationList = ProfileSearchCache()
 
             private fun getItem(profileId: Long): ProxyEntity {
                 var profile = configurationList[profileId]
@@ -1260,16 +1264,18 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             fun filter(name: String) {
                 if (name.isEmpty()) {
-                    reloadProfiles()
+                    configurationIdList.clear()
+                    configurationIdList.addAll(configurationList.orderedIds(proxyGroup.order))
+                    notifyDataSetChanged()
+                    val selectedIndex = if (selected) {
+                        configurationIdList.indexOf(selectedItem?.id ?: DataStore.selectedProxy)
+                    } else -1
+                    if (selectedIndex >= 0) configurationListView.scrollTo(selectedIndex, true)
+                    else if (configurationIdList.isNotEmpty()) configurationListView.scrollTo(0, true)
                     return
                 }
                 configurationIdList.clear()
-                val lower = name.lowercase()
-                configurationIdList.addAll(configurationList.filter {
-                    it.value.displayName().lowercase().contains(lower) ||
-                            it.value.displayType().lowercase().contains(lower) ||
-                            it.value.displayAddress().lowercase().contains(lower)
-                }.keys)
+                configurationIdList.addAll(configurationList.matchingIds(name))
                 notifyDataSetChanged()
             }
 
@@ -1299,8 +1305,7 @@ class ConfigurationFragment @JvmOverloads constructor(
             }
 
             fun remove(pos: Int) {
-                if (pos < 0) return
-                configurationIdList.removeAt(pos)
+                if (!configurationList.removeVisible(configurationIdList, pos)) return
                 notifyItemRemoved(pos)
             }
 
@@ -1339,17 +1344,16 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             override suspend fun onUpdated(profile: ProxyEntity, noTraffic: Boolean) {
                 if (profile.groupId != proxyGroup.id) return
-                val index = configurationIdList.indexOf(profile.id)
-                if (index < 0) return
                 configurationListView.post {
+                    val oldProfile = configurationList.updateExisting(profile) ?: return@post
+                    val index = configurationIdList.indexOf(profile.id)
+                    if (index < 0) return@post
                     if (::undoManager.isInitialized) {
                         undoManager.flush()
                     }
-                    configurationList[profile.id] = profile
                     notifyItemChanged(index)
                     //
-                    val oldProfile = configurationList[profile.id]
-                    if (noTraffic && oldProfile != null) {
+                    if (noTraffic) {
                         runOnDefaultDispatcher {
                             onUpdated(
                                 TrafficData(
@@ -1382,12 +1386,11 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             override suspend fun onRemoved(groupId: Long, profileId: Long) {
                 if (groupId != proxyGroup.id) return
-                val index = configurationIdList.indexOf(profileId)
-                if (index < 0) return
-
                 configurationListView.post {
-                    configurationIdList.removeAt(index)
                     configurationList.remove(profileId)
+                    val index = configurationIdList.indexOf(profileId)
+                    if (index < 0) return@post
+                    configurationIdList.removeAt(index)
                     notifyItemRemoved(index)
                 }
             }
@@ -1421,8 +1424,6 @@ class ConfigurationFragment @JvmOverloads constructor(
                     }
                 }
 
-                configurationList.clear()
-                configurationList.putAll(newProfiles.associateBy { it.id })
                 val newProfileIds = newProfiles.map { it.id }
 
                 var selectedProfileIndex = -1
@@ -1433,6 +1434,8 @@ class ConfigurationFragment @JvmOverloads constructor(
                 }
 
                 configurationListView.post {
+                    configurationList.clear()
+                    configurationList.putAll(newProfiles.associateBy { it.id })
                     configurationIdList.clear()
                     configurationIdList.addAll(newProfileIds)
                     notifyDataSetChanged()
@@ -1464,6 +1467,7 @@ class ConfigurationFragment @JvmOverloads constructor(
             val trafficText: TextView = view.findViewById(R.id.traffic_text)
             val selectedView: LinearLayout = view.findViewById(R.id.selected_view)
             val editButton: ImageView = view.findViewById(R.id.edit)
+            val jsonButton: ImageView = view.findViewById(R.id.node_json)
             val shareLayout: LinearLayout = view.findViewById(R.id.share)
             val shareLayer: LinearLayout = view.findViewById(R.id.share_layer)
             val shareButton: ImageView = view.findViewById(R.id.shareIcon)
@@ -1580,6 +1584,14 @@ class ConfigurationFragment @JvmOverloads constructor(
                             it.context, proxyGroup.type == GroupType.SUBSCRIPTION
                         )
                     )
+                }
+
+                jsonButton.isGone = select
+                val jsonEnabled = io.nekohasekai.sagernet.fmt.NodeJson.enabled(proxyEntity.requireBean())
+                jsonButton.alpha = if (jsonEnabled) 1f else 0.65f
+                jsonButton.contentDescription = getString(if (jsonEnabled) R.string.json_manage_active else R.string.json_manage)
+                jsonButton.setOnClickListener {
+                    io.nekohasekai.sagernet.ui.profile.NodeJsonMenu.show(requireActivity(), it, proxyEntity.id)
                 }
 
                 removeButton.setOnClickListener {

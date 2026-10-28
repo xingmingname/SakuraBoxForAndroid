@@ -8,11 +8,8 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
-import io.nekohasekai.sagernet.ktx.use
 import io.nekohasekai.sagernet.utils.CrashHandler
 import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
 import java.io.IOException
 
 object SendLog {
@@ -23,18 +20,16 @@ object SendLog {
             ".log",
             File(app.cacheDir, "log").also { it.mkdirs() })
 
-        var report = CrashHandler.buildReportHeader()
+        var report = LogRedactor.redact(CrashHandler.buildReportHeader())
 
         report += "Logcat: \n\n"
 
         logFile.writeText(report)
 
         try {
-            Runtime.getRuntime().exec(arrayOf("logcat", "-d")).inputStream.use(
-                FileOutputStream(
-                    logFile, true
-                )
-            )
+            Runtime.getRuntime().exec(arrayOf("logcat", "-d")).inputStream.bufferedReader().use { reader ->
+                java.io.FileOutputStream(logFile, true).bufferedWriter(Charsets.UTF_8).use { writer -> LogRedactor.redact(reader, writer) }
+            }
             logFile.appendText("\n")
         } catch (e: IOException) {
             Logs.w(e)
@@ -65,14 +60,9 @@ object SendLog {
                 SagerNet.application.cacheDir,
                 "neko.log"
             )
-            val len = file.length()
-            val stream = FileInputStream(file)
-            if (max in 1 until len) {
-                stream.skip(len - max) // TODO string?
-            }
-            stream.use { LogRedactor.redact(it.readBytes().toString(Charsets.UTF_8)).toByteArray() }
+            file.inputStream().bufferedReader().use { reader -> LogRedactor.redactTail(reader, max) }
         } catch (e: Exception) {
-            e.stackTraceToString().toByteArray()
+            LogRedactor.redact(e.stackTraceToString()).toByteArray()
         }
     }
 }

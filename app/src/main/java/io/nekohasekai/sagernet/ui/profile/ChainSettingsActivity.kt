@@ -17,7 +17,6 @@ import androidx.preference.PreferenceFragmentCompat
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
@@ -178,31 +177,6 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
 
     }
 
-    fun testProfileAllowed(profile: ProxyEntity): Boolean {
-        if (profile.id == DataStore.editingId) return false
-
-        for (entity in proxyList) {
-            if (testProfileContains(entity, profile)) return false
-        }
-
-        return true
-    }
-
-    fun testProfileContains(profile: ProxyEntity, anotherProfile: ProxyEntity): Boolean {
-        if (profile.type != 8 || anotherProfile.type != 8) return false
-        if (profile.id == anotherProfile.id) return true
-        val proxies = profile.chainBean!!.proxies
-        if (proxies.contains(anotherProfile.id)) return true
-        if (proxies.isNotEmpty()) {
-            for (entity in ProfileManager.getProfiles(proxies)) {
-                if (testProfileContains(entity, anotherProfile)) {
-                    return true
-                }
-            }
-        }
-        return false
-    }
-
     var replacing = 0
 
     val selectProfileForAdd =
@@ -216,21 +190,13 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
                     )
                 )!!
 
-                if (!testProfileAllowed(profile)) {
-                    onMainDispatcher {
-                        MaterialAlertDialogBuilder(this@ChainSettingsActivity).setTitle(R.string.circular_reference)
-                            .setMessage(R.string.circular_reference_sum)
-                            .setPositiveButton(android.R.string.ok, null).show()
-                    }
-                } else {
-                    configurationList.post {
-                        if (replacing != 0) {
-                            proxyList[replacing - 1] = profile
-                            configurationAdapter.notifyItemChanged(replacing)
-                        } else {
-                            proxyList.add(profile)
-                            configurationAdapter.notifyItemInserted(proxyList.size)
-                        }
+                onMainDispatcher {
+                    if (replacing != 0) {
+                        proxyList[replacing - 1] = profile
+                        configurationAdapter.notifyItemChanged(replacing)
+                    } else {
+                        proxyList.add(profile)
+                        configurationAdapter.notifyItemInserted(proxyList.size)
                     }
                 }
             }

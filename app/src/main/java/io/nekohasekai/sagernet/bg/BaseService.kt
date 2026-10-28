@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.bg
 
+import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -15,6 +16,8 @@ import io.nekohasekai.sagernet.aidl.ISagerNetServiceCallback
 import io.nekohasekai.sagernet.bg.proto.ProxyInstance
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.SagerDatabase
+import io.nekohasekai.sagernet.fmt.NodeJson
+import io.nekohasekai.sagernet.fmt.NodeJsonReload
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager
 import io.nekohasekai.sagernet.utils.DefaultNetworkListener
@@ -49,7 +52,8 @@ class BaseService {
         val receiver = broadcastReceiver { ctx, intent ->
             when (intent.action) {
                 Intent.ACTION_SHUTDOWN -> service.persistStats()
-                Action.RELOAD -> service.reload()
+                Action.RELOAD -> if (intent.hasExtra(SagerNet.JSON_PROFILE_ID))
+                    service.reloadJsonProfile(intent.getLongExtra(SagerNet.JSON_PROFILE_ID, 0L)) else service.reload()
                 // Action.SWITCH_WAKE_LOCK -> runOnDefaultDispatcher { service.switchWakeLock() }
                 PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -202,11 +206,32 @@ class BaseService {
             }
         }
 
+        fun reloadJsonProfile(editedId: Long? = null) {
+            val running = data.proxy ?: return
+            if (data.state != State.Connected) return
+            data.scope.launch {
+                try {
+                    val changed = withContext(Dispatchers.IO) {
+                        NodeJsonReload.changed(running.config.jsonSources, editedId) { ids ->
+                            ids.chunked(500).flatMap { SagerDatabase.proxyDao.getEntities(it) }
+                                .associate { it.id to NodeJson.state(it.requireBean()) }
+                        }
+                    }
+                    if (changed && data.state == State.Connected && data.proxy === running) stopRunner(true)
+                } catch (e: CancellationException) { throw e }
+                catch (_: Exception) {
+                    Logs.w("Saved JSON could not be checked against the running configuration; reconnect to apply it")
+                    Toast.makeText(this@Interface as Context, R.string.json_saved_reconnect, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
         fun canReloadSelector(): Boolean {
             if ((data.proxy?.config?.selectorGroupId ?: -1L) < 0) return false
             val ent = SagerDatabase.proxyDao.getById(DataStore.selectedProxy) ?: return false
             val tmpBox = ProxyInstance(ent)
             tmpBox.buildConfigTmp()
+            if (tmpBox.config.jsonSources != data.proxy?.config?.jsonSources) return false
             if (tmpBox.lastSelectorGroupId == data.proxy?.lastSelectorGroupId) {
                 return true
             }
@@ -311,6 +336,8 @@ class BaseService {
             }
         }
 
+        // API 33+ uses explicit flags; older devices use the signature-protected legacy overload.
+        @SuppressLint("UnspecifiedRegisterReceiverFlag")
         fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
             DataStore.baseService = this
 
@@ -377,6 +404,8 @@ class BaseService {
                     startProcesses()
                     currentCoroutineContext().ensureActive()
                     data.changeState(State.Connected)
+                    // A save may race with startup before the reload receiver/config snapshot is ready.
+                    reloadJsonProfile()
 
                     lateInit()
                 } catch (_: CancellationException) { // if the job was cancelled, it is canceller's responsibility to call stopRunner

@@ -12,6 +12,13 @@ import android.view.View
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Toast
+import androidx.activity.addCallback
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.launch
 import androidx.activity.result.component1
 import androidx.activity.result.component2
 import androidx.activity.result.contract.ActivityResultContracts
@@ -54,12 +61,10 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         override fun AlertDialog.Builder.prepare(listener: DialogInterface.OnClickListener) {
             setTitle(R.string.unsaved_changes_prompt)
             setPositiveButton(R.string.yes) { _, _ ->
-                runOnDefaultDispatcher {
-                    (requireActivity() as ProfileSettingsActivity<*>).saveAndExit()
-                }
+                (requireActivity() as ProfileSettingsActivity<*>).requestSaveAndExit()
             }
             setNegativeButton(R.string.no) { _, _ ->
-                requireActivity().finish()
+                (requireActivity() as ProfileSettingsActivity<*>).discardAndExit()
             }
             setNeutralButton(android.R.string.cancel, null)
         }
@@ -92,9 +97,12 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
     val proxyEntity by lazy { SagerDatabase.proxyDao.getById(DataStore.editingId) }
     protected var isSubscription by Delegates.notNull<Boolean>()
     private var protocolPreferences: ProtocolAdvancedPreferences? = null
+    private var saveJob: Job? = null
+    @Volatile private var discardingChanges = false
 
-    private fun currentEditorBean(): T {
-        val bean = (proxyEntity?.requireBean()?.clone() ?: createEntity().applyDefaultValues()) as T
+    protected fun currentEditorBean(): T {
+        val bean = (SagerDatabase.proxyDao.getById(DataStore.editingId)?.requireBean()?.clone()
+            ?: createEntity().applyDefaultValues()) as T
         bean.serialize()
         return bean
     }
@@ -108,6 +116,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        onBackPressedDispatcher.addCallback(this) { requestEditorExit() }
         setSupportActionBar(findViewById(R.id.toolbar))
         supportActionBar?.apply {
             setTitle(R.string.profile_config)
@@ -146,23 +155,36 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
     }
 
-    open suspend fun saveAndExit() {
+    private fun requestSaveAndExit() {
+        if (discardingChanges || isFinishing || isDestroyed || saveJob?.isActive == true) return
+        saveJob = lifecycleScope.launch(Dispatchers.Default) { saveAndExit() }
+    }
 
+    private fun discardAndExit() {
+        discardingChanges = true
+        saveJob?.cancel()
+        finish()
+    }
+
+    open suspend fun saveAndExit() {
+        currentCoroutineContext().ensureActive()
+        if (discardingChanges || isFinishing || isDestroyed) return
         val edited = currentEditorBean()
         edited.protocolOptionsJson = DataStore.profileCacheStore.getString(ProtocolAdvancedPreferences.CACHE_KEY) ?: ""
         try {
-            if (ProtocolOptions.protocol(edited) != null) {
-                ProtocolOptions.validate(edited, ProtocolOptions.parse(edited.protocolOptionsJson))
+            ProtocolOptions.parse(edited.protocolOptionsJson)
+            if (edited is moe.matsuri.nb4a.proxy.config.ConfigBean && edited.type == 0 && edited.config.isNotBlank()) {
+                io.nekohasekai.sagernet.fmt.NodeJson.parse(edited.config)
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             onMainDispatcher {
-                Toast.makeText(this@ProfileSettingsActivity,
-                    if (e is ProtocolOptions.QuicECHConfigException) R.string.protocol_quic_static_ech_required
-                    else R.string.protocol_options_conflict, Toast.LENGTH_LONG).show()
+                Toast.makeText(this@ProfileSettingsActivity, R.string.protocol_option_invalid_json, Toast.LENGTH_LONG).show()
             }
-            return // Validation must precede stopping the active VPN or writing the database.
+            return
         }
 
+        currentCoroutineContext().ensureActive()
+        if (discardingChanges || isFinishing || isDestroyed) return
         val editingId = DataStore.editingId
         if (editingId == 0L) {
             val editingGroup = DataStore.editingGroup
@@ -197,21 +219,33 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                 isVisible = true // not new profile
             }
         }
-        // shared menu item
-        menu.findItem(R.id.action_custom_outbound_json)?.isVisible = true
-        menu.findItem(R.id.action_custom_config_json)?.isVisible = true
         return true
     }
 
-    override fun onOptionsItemSelected(item: MenuItem) = child.onOptionsItemSelected(item)
-
-    override fun onBackPressed() {
-        if (DataStore.dirty) UnsavedChangesDialogFragment().apply { key() }
-            .show(supportFragmentManager, null) else super.onBackPressed()
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (item.itemId == android.R.id.home) return onSupportNavigateUp()
+        return (supportFragmentManager.findFragmentById(R.id.settings) as? MyPreferenceFragmentCompat)
+            ?.onOptionsItemSelected(item) == true || super.onOptionsItemSelected(item)
     }
 
+    private fun requestEditorExit() {
+        if (isFinishing || isDestroyed || supportFragmentManager.isStateSaved) return
+        if (!DataStore.dirty) {
+            discardAndExit()
+            return
+        }
+        if (supportFragmentManager.fragments.any { it is UnsavedChangesDialogFragment }) return
+        UnsavedChangesDialogFragment().apply { key() }
+            .showNow(supportFragmentManager, UnsavedChangesDialogFragment::class.java.name)
+    }
+
+    @Deprecated("Use onBackPressedDispatcher")
+    // Back is intentionally consumed by this page; calling super bypasses its exit policy.
+    @SuppressLint("MissingSuperCall")
+    override fun onBackPressed() = requestEditorExit()
+
     override fun onSupportNavigateUp(): Boolean {
-        if (!super.onSupportNavigateUp()) finish()
+        requestEditorExit()
         return true
     }
 
@@ -236,12 +270,18 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         if (key != Key.PROFILE_DIRTY) {
             DataStore.dirty = true
         }
-        if (key in setOf("security", "type", "enableMux", "enableECH", "echConfig", "realityPubKey", Key.PROTOCOL_VERSION, Key.SERVER_PROTOCOL)) {
+        if (key in setOf("security", "type", "enableMux", "enableECH", "echConfig", "realityPubKey", "utlsFingerprint",
+                ProtocolAdvancedPreferences.CACHE_KEY, Key.PROTOCOL_VERSION, Key.SERVER_PROTOCOL)) {
             runOnUiThread {
                 if (key in setOf(Key.PROTOCOL_VERSION, Key.SERVER_PROTOCOL)) {
                     migrateHysteriaEditorCache()
                 }
-                protocolPreferences?.refresh()
+                if (key == ProtocolAdvancedPreferences.CACHE_KEY) {
+                    child.view?.post {
+                        protocolPreferences?.refresh()
+                        child.syncMtlsValues(DataStore.profileCacheStore.getString(ProtocolAdvancedPreferences.CACHE_KEY))
+                    }
+                } else protocolPreferences?.refresh()
             }
         }
     }
@@ -293,21 +333,6 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             }
         }
 
-        var callbackCustom: ((String) -> Unit)? = null
-        var callbackCustomOutbound: ((String) -> Unit)? = null
-
-        val resultCallbackCustom = registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult()
-        ) { (_, _) ->
-            callbackCustom?.let { it(DataStore.serverCustom) }
-        }
-
-        val resultCallbackCustomOutbound = registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult()
-        ) { (_, _) ->
-            callbackCustomOutbound?.let { it(DataStore.serverCustomOutbound) }
-        }
-
         @SuppressLint("CheckResult")
         override fun onOptionsItemSelected(item: MenuItem) = when (item.itemId) {
             R.id.action_delete -> {
@@ -327,44 +352,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             }
 
             R.id.action_apply -> {
-                runOnDefaultDispatcher {
-                    activity?.saveAndExit()
-                }
-                true
-            }
-
-            R.id.action_custom_outbound_json -> {
-                activity?.proxyEntity?.apply {
-                    val bean = requireBean()
-                    DataStore.serverCustomOutbound = bean.customOutboundJson
-                    callbackCustomOutbound = {
-                        bean.customOutboundJson = it
-                        activity?.protocolPreferences?.refresh()
-                    }
-                    resultCallbackCustomOutbound.launch(
-                        Intent(
-                            requireContext(),
-                            ConfigEditActivity::class.java
-                        ).apply {
-                            putExtra("key", Key.SERVER_CUSTOM_OUTBOUND)
-                        })
-                }
-                true
-            }
-
-            R.id.action_custom_config_json -> {
-                activity?.proxyEntity?.apply {
-                    val bean = requireBean()
-                    DataStore.serverCustom = bean.customConfigJson
-                    callbackCustom = { bean.customConfigJson = it }
-                    resultCallbackCustom.launch(
-                        Intent(
-                            requireContext(),
-                            ConfigEditActivity::class.java
-                        ).apply {
-                            putExtra("key", Key.SERVER_CUSTOM)
-                        })
-                }
+                activity?.requestSaveAndExit()
                 true
             }
 

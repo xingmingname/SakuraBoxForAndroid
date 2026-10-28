@@ -3,6 +3,8 @@ package io.nekohasekai.sagernet.fmt.v2ray;
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
 
+import java.util.Locale;
+
 import io.nekohasekai.sagernet.fmt.AbstractBean;
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean;
 import moe.matsuri.nb4a.utils.JavaUtil;
@@ -75,7 +77,7 @@ public abstract class StandardV2RayBean extends AbstractBean {
         if (JavaUtil.isNullOrBlank(type)) type = "tcp";
         else if ("h2".equals(type)) type = "http";
 
-        type = type.toLowerCase();
+        type = type.toLowerCase(Locale.ROOT);
 
         if (JavaUtil.isNullOrBlank(host)) host = "";
         if (JavaUtil.isNullOrBlank(path)) path = "";
@@ -112,7 +114,7 @@ public abstract class StandardV2RayBean extends AbstractBean {
 
     @Override
     public void serialize(ByteBufferOutput output) {
-        output.writeInt(4);
+        output.writeInt(5);
         super.serialize(output);
         output.writeString(uuid);
         output.writeString(encryption);
@@ -146,7 +148,8 @@ public abstract class StandardV2RayBean extends AbstractBean {
         }
 
         output.writeString(security);
-        if ("tls".equals(security)) {
+        // Preserve inactive TLS/REALITY values when the editor selects None.
+        {
             output.writeString(sni);
             output.writeString(alpn);
             output.writeString(certificates);
@@ -208,7 +211,7 @@ public abstract class StandardV2RayBean extends AbstractBean {
         }
 
         security = input.readString();
-        if ("tls".equals(security)) {
+        if (version >= 5 || "tls".equals(security)) {
             sni = input.readString();
             alpn = input.readString();
             certificates = input.readString();

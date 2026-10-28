@@ -4,16 +4,16 @@ import android.os.Parcel
 import android.os.Parcelable
 import com.esotericsoftware.kryo.io.ByteBufferInput
 import com.esotericsoftware.kryo.io.ByteBufferOutput
-import java.io.InputStream
+import io.nekohasekai.sagernet.fmt.BoundedKryoInput
 import java.io.OutputStream
 
 
-fun InputStream.byteBuffer() = ByteBufferInput(this)
+fun ByteArray.byteBuffer() = BoundedKryoInput(this)
 fun OutputStream.byteBuffer() = ByteBufferOutput(this)
 
 fun ByteBufferInput.readStringList(): List<String> {
     return mutableListOf<String>().apply {
-        repeat(readInt()) {
+        repeat(BoundedKryoInput.readCollectionSize(this@readStringList, 1)) {
             add(readString())
         }
     }
@@ -21,7 +21,7 @@ fun ByteBufferInput.readStringList(): List<String> {
 
 fun ByteBufferInput.readStringSet(): Set<String> {
     return linkedSetOf<String>().apply {
-        repeat(readInt()) {
+        repeat(BoundedKryoInput.readCollectionSize(this@readStringSet, 1)) {
             add(readString())
         }
     }

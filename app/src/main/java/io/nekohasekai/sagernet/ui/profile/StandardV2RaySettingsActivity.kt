@@ -7,6 +7,7 @@ import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.fmt.ProtocolOptions
+import io.nekohasekai.sagernet.fmt.ConnectionSecurity
 import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
@@ -53,11 +54,16 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
     private val muxType = pbm.add(PreferenceBinding(Type.TextToInt, "muxType"))
     private val muxConcurrency = pbm.add(PreferenceBinding(Type.TextToInt, "muxConcurrency"))
 
+    private fun editorProtocolBean(): StandardV2RayBean =
+        tmpBean ?: (proxyEntity?.requireBean() as? StandardV2RayBean) ?: createEntity()
+
+    private fun configureProtocolBindings(bean: StandardV2RayBean) {
+        uuid.fieldName = if (bean is TrojanBean) "password" else "uuid"
+        password.disable = bean is TrojanBean
+    }
+
     override fun StandardV2RayBean.init() {
-        if (this is TrojanBean) {
-            this@StandardV2RaySettingsActivity.uuid.fieldName = "password"
-            this@StandardV2RaySettingsActivity.password.disable = true
-        }
+        configureProtocolBindings(this)
 
         tmpBean = this // copy bean
         pbm.writeToCacheAll(this)
@@ -67,10 +73,8 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
         pbm.fromCacheAll(this)
     }
 
-    private lateinit var securityCategory: PreferenceCategory
-    private lateinit var tlsCamouflageCategory: PreferenceCategory
     private lateinit var wsCategory: PreferenceCategory
-    private lateinit var echCategory: PreferenceCategory
+    private var securityPreferences: ConnectionSecurityPreferences? = null
 
     override fun PreferenceFragmentCompat.createPreferences(
         savedInstanceState: Bundle?,
@@ -78,19 +82,16 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
     ) {
         addPreferencesFromResource(R.xml.standard_v2ray_preferences)
         pbm.setPreferenceFragment(this)
-        securityCategory = findPreference(Key.SERVER_SECURITY_CATEGORY)!!
-        tlsCamouflageCategory = findPreference(Key.SERVER_TLS_CAMOUFLAGE_CATEGORY)!!
-        echCategory = findPreference(Key.SERVER_ECH_CATEORY)!!
         wsCategory = findPreference(Key.SERVER_WS_CATEGORY)!!
 
 
-        // vmess/vless/http/trojan
-        // init() is not called again on Activity recreation; the concrete editor still identifies HTTP.
-        val isHttp = !ProtocolOptions.supportsSharedTransport(tmpBean ?: createEntity())
+        val editorBean = editorProtocolBean()
+        configureProtocolBindings(editorBean)
+        val isHttp = !ProtocolOptions.supportsSharedTransport(editorBean)
         findPreference<PreferenceCategory>("serverMuxCategory")!!.isVisible =
             !isHttp
-        val isVmess = tmpBean is VMessBean && tmpBean?.isVLESS == false
-        val isVless = tmpBean?.isVLESS == true
+        val isVmess = editorBean is VMessBean && !editorBean.isVLESS
+        val isVless = editorBean.isVLESS
 
         serverPort.preference.apply {
             this as EditTextPreference
@@ -112,7 +113,7 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
         username.preference.isVisible = isHttp
         password.preference.isVisible = isHttp
 
-        if (tmpBean is TrojanBean) {
+        if (editorBean is TrojanBean) {
             uuid.preference.title = resources.getString(R.string.password)
         }
 
@@ -136,25 +137,20 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
             this as SimpleMenuPreference
             setOnPreferenceChangeListener { _, newValue ->
                 updateView(newValue as String)
+                view?.post { securityPreferences?.refresh() }
                 true
             }
         }
 
-        security.preference.apply {
-            updateTls(security.readStringFromCache())
-            this as SimpleMenuPreference
-            setOnPreferenceChangeListener { _, newValue ->
-                updateTls(newValue as String)
-                true
-            }
-        }
+        securityPreferences = ConnectionSecurityPreferences(this) { currentEditorBean() }.also { it.bind() }
+
     }
 
     private fun updateView(network: String) {
         host.preference.isVisible = false
         path.preference.isVisible = false
         wsCategory.isVisible = false
-        if (!ProtocolOptions.supportsSharedTransport(tmpBean ?: createEntity())) return
+        if (!ProtocolOptions.supportsSharedTransport(editorProtocolBean())) return
 
         when (network) {
             "tcp" -> {
@@ -191,11 +187,6 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
         }
     }
 
-    private fun updateTls(tls: String) {
-        val isTLS = "tls" in tls
-        securityCategory.isVisible = isTLS
-        tlsCamouflageCategory.isVisible = isTLS
-        echCategory.isVisible = isTLS
-    }
+
 
 }

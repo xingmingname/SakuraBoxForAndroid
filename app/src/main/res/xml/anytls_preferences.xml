@@ -23,6 +23,15 @@
             app:title="@string/password" />
     </PreferenceCategory>
 
+    <moe.matsuri.nb4a.ui.SimpleMenuPreference
+        app:key="connectionSecurity"
+        app:entries="@array/connection_security_entries"
+        app:entryValues="@array/connection_security_values"
+        app:persistent="false"
+        app:icon="@drawable/ic_baseline_layers_24"
+        app:title="@string/connection_security"
+        app:useSimpleSummaryProvider="true" />
+
     <PreferenceCategory app:title="@string/security_settings">
         <EditTextPreference
             app:icon="@drawable/ic_action_copyright"
@@ -52,10 +61,34 @@
             app:title="@string/utls_fingerprint"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
+            app:key="realityPubKey"
+            app:persistent="false"
+            app:icon="@drawable/ic_baseline_vpn_key_24"
+            app:title="@string/connection_reality_public_key"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:key="realityShortId"
+            app:persistent="false"
+            app:icon="@drawable/ic_baseline_texture_24"
+            app:title="@string/connection_reality_short_id"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
             app:icon="@drawable/ic_baseline_vpn_key_24"
             app:key="echConfig"
             app:title="@string/ech_config"
             app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:key="mtlsClientCertificate"
+            app:persistent="false"
+            app:icon="@drawable/ic_file_file_upload"
+            app:title="@string/mtls_client_certificate"
+            app:summary="@string/mtls_unset" />
+        <EditTextPreference
+            app:key="mtlsClientKey"
+            app:persistent="false"
+            app:icon="@drawable/ic_baseline_vpn_key_24"
+            app:title="@string/mtls_client_key"
+            app:summary="@string/mtls_unset" />
     </PreferenceCategory>
 
 </PreferenceScreen>

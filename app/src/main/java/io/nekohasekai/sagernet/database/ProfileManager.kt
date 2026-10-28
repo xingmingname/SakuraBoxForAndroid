@@ -80,18 +80,31 @@ object ProfileManager {
             putBean(bean)
             userOrder = SagerDatabase.proxyDao.nextOrder(groupId) ?: 1
         }
+        if (bean.jsonMode in 1..2) io.nekohasekai.sagernet.fmt.NodeJsonProfile.validate(
+            profile, bean.jsonMode, io.nekohasekai.sagernet.fmt.NodeJson.saved(bean, bean.jsonMode))
         profile.id = SagerDatabase.proxyDao.addProxy(profile)
         iterator { onAdd(profile) }
         return profile
     }
 
     suspend fun updateProfile(profile: ProxyEntity) {
-        SagerDatabase.proxyDao.updateProxy(profile)
+        SagerDatabase.instance.runInTransaction {
+            val latest = SagerDatabase.proxyDao.getById(profile.id) ?: return@runInTransaction
+            io.nekohasekai.sagernet.fmt.NodeJson.copyState(latest.requireBean(), profile.requireBean())
+            SagerDatabase.proxyDao.updateProxy(profile)
+        }
         iterator { onUpdated(profile, false) }
     }
 
     suspend fun updateProfile(profiles: List<ProxyEntity>) {
-        SagerDatabase.proxyDao.updateProxy(profiles)
+        SagerDatabase.instance.runInTransaction {
+            profiles.forEach { profile ->
+                SagerDatabase.proxyDao.getById(profile.id)?.let { latest ->
+                    io.nekohasekai.sagernet.fmt.NodeJson.copyState(latest.requireBean(), profile.requireBean())
+                    SagerDatabase.proxyDao.updateProxy(profile)
+                }
+            }
+        }
         profiles.forEach {
             iterator { onUpdated(it, false) }
         }

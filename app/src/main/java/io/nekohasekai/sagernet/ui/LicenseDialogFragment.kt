@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.ui
 
+import android.annotation.SuppressLint
 import android.app.Dialog
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -19,6 +20,8 @@ internal fun licenseDetails(projectLicense: String, notices: String, thirdPartyT
 }
 
 class LicenseDialogFragment : DialogFragment() {
+    // Material dialog inflation must use the builder theme rather than the Fragment theme.
+    @SuppressLint("UseGetLayoutInflater")
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val builder = MaterialAlertDialogBuilder(requireContext())
         val binding = DialogLicenseBinding.inflate(LayoutInflater.from(builder.context))

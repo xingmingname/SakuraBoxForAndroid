@@ -3,12 +3,11 @@
     <string name="protocol_advanced_options">Advanced protocol options</string>
     <string name="protocol_core_default">Core default (omit)</string>
     <string name="protocol_duration_help">Leave blank for the core default. Use duration units, for example 30s, 500ms or 1m30s.</string>
-    <string name="protocol_pin_help">One Base64 SHA-256 public-key pin per line. Pinning replaces normal certificate-chain verification in this core. Do not combine with a custom CA certificate.</string>
+    <string name="protocol_pin_help">One Base64 SHA-256 public-key pin per line</string>
     <string name="protocol_list_help">Separate values by newlines or commas. Leave blank to omit this override.</string>
     <string name="protocol_default_help">Leave blank to omit this override and keep the existing setting or core default.</string>
     <string name="protocol_option_invalid">Invalid value for %1$s. Check the required format and range.</string>
     <string name="protocol_option_invalid_json">The outbound override is not a JSON object. Use the existing JSON editor to correct it; no data has been discarded.</string>
-    <string name="protocol_options_conflict">Advanced settings are invalid or conflict. Check TLS versions, ECH/Reality, certificates/pins, port-hop intervals and TUIC relay options. Nothing has been saved.</string>
     <string name="protocol_connect_timeout">Connection timeout</string>
     <string name="protocol_idle_session_check_interval">Idle session check interval</string>
     <string name="protocol_idle_session_timeout">Idle session timeout</string>
@@ -61,7 +60,8 @@
     <string name="protocol_clear_options_summary">Clears all fields in this section, including imported protocol extensions. Existing custom JSON overrides remain. Apply to save.</string>
     <string name="protocol_manual_override_priority">Existing custom outbound JSON has final priority over these settings.</string>
     <string name="protocol_hy2_fixed_alpn">HTTP/3 ALPN: h3 (fixed by Hysteria2)</string>
-    <string name="protocol_quic_static_ech_required">QUIC ECH requires a static ECH CONFIGS PEM. Dynamic ECH DNS lookup is unsupported by this core; stored query names are preserved but unused.</string>
     <string name="protocol_grpc_lite_supported">gRPC Lite supports idle and ping timeouts. Keep-alive without active streams is unsupported in this build.</string>
-    <string name="protocol_static_ech_help">Paste the complete ECH CONFIGS PEM, including BEGIN and END lines. The core validates the ECH configuration; a query name cannot replace a static configuration for QUIC.</string>
+    <string name="protocol_static_ech_help">Paste the complete ECH CONFIGS PEM including BEGIN and END lines</string>
+    <string name="chain_nesting_too_deep">Proxy chain nesting exceeds 128 levels.</string>
+    <string name="protocol_tls_curves_standard_only">Custom curves are supported only by standard Go TLS. uTLS and REALITY use their handshake profiles. Saved values are kept.</string>
 </resources>

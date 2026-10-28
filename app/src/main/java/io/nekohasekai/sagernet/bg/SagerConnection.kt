@@ -111,7 +111,7 @@ class SagerConnection(
         try {
             service?.registerCallback(serviceCallback, id)
         } catch (e: Exception) {
-            e.printStackTrace()
+            moe.matsuri.nb4a.utils.LogRedactor.printStackTrace(e)
         }
     }
 
@@ -125,7 +125,7 @@ class SagerConnection(
             service.registerCallback(serviceCallback, connectionId)
             callbackRegistered = true
         } catch (e: RemoteException) {
-            e.printStackTrace()
+            moe.matsuri.nb4a.utils.LogRedactor.printStackTrace(e)
         }
         callback?.onServiceConnected(service)
     }

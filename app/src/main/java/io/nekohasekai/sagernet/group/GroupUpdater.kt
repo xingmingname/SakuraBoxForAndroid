@@ -6,6 +6,9 @@ import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.SubscriptionBean
 import io.nekohasekai.sagernet.fmt.AbstractBean
+import io.nekohasekai.sagernet.fmt.ProtocolOptions
+import io.nekohasekai.sagernet.fmt.tuic.TuicBean
+import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.naive.NaiveBean
@@ -113,9 +116,26 @@ abstract class GroupUpdater {
                 is HysteriaBean -> {
                     if (sni.isBlank()) sni = bean.serverAddress
                 }
+                is AnyTLSBean -> preserveResolvedSni(this, sni) { sni = it }
+                is TuicBean -> preserveResolvedSni(this, sni) { sni = it }
             }
 
             bean.serverAddress = address
+        }
+    }
+
+    private fun preserveResolvedSni(bean: AbstractBean, sni: String, setSni: (String) -> Unit) {
+        if (bean.serverAddress.isIpAddress()) return
+        try {
+            val stored = ProtocolOptions.parse(bean.protocolOptionsJson)
+            val tls = ProtocolOptions.effectiveOptions(bean, stored).getAsJsonObject("tls")
+            if ((tls?.get("server_name")?.asString ?: sni).isNotBlank()) return
+            if (stored.getAsJsonObject("tls")?.has("server_name") == true) {
+                stored.getAsJsonObject("tls").addProperty("server_name", bean.serverAddress)
+                bean.protocolOptionsJson = stored.toString()
+            } else setSni(bean.serverAddress)
+        } catch (_: Exception) {
+            throw IllegalArgumentException("Cannot preserve SNI: invalid TLS advanced options")
         }
     }
 

@@ -22,8 +22,10 @@ import (
 //go:linkname resourcePaths github.com/sagernet/sing-box/constant.resourcePaths
 var resourcePaths []string
 
+var nativeLogger = log.New(safeNativeLog, "", log.LstdFlags|log.LUTC)
+
 func NekoLogPrintln(s string) {
-	log.Println(redactLog(s))
+	nativeLogger.Println(s)
 }
 
 func NekoLogClear() {
@@ -64,7 +66,7 @@ func InitCore(process, cachePath, internalAssets, externalAssets string,
 	neko_log.LogWriterDisable = !logEnable
 	neko_log.TruncateOnStart = isBgProcess
 	neko_log.SetupLog(int(maxLogSizeKb)*1024, filepath.Join(cachePath, "neko.log"))
-	log.SetOutput(redactingLogWriter{neko_log.LogWriter})
+	log.SetOutput(safeNativeLog)
 
 	// nekoutils
 	nekoutils.Selector_OnProxySelected = intfNB4A.Selector_OnProxySelected

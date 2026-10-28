@@ -140,7 +140,7 @@
     <string name="route_proxy">اتصال با پراکسی</string>
     <string name="route_bypass">اتصال مستقیم بدون پراکسی</string>
     <string name="route_block">مسدودکردن اتصال</string>
-    <string name="route_profile">انتخاب پراکسی...</string>
+    <string name="route_profile">انتخاب پراکسی…</string>
     <string name="empty_route">مسیر خالی</string>
     <string name="empty_route_notice">قبل از ثبت، دستورالعملی اضافه کنید.</string>
     <string name="route_bypass_domain">دستورالعمل برای دامنه‌های %s</string>
@@ -169,8 +169,8 @@
     <string name="proxied_apps_summary">انتخاب اپلیکیشن‌های مورد نظر برای پراکسی شدن</string>
     <string name="on">روشن</string>
     <string name="off">خاموش</string>
-    <string name="search_apps">در حال جستجو...</string>
-    <string name="scanning">در حال اسکن...</string>
+    <string name="search_apps">در حال جستجو…</string>
+    <string name="scanning">در حال اسکن…</string>
     <string name="invert_selections">برعکس‌کردن گزینه‌های انتخاب‌شده</string>
     <string name="clear_selections">برداشتن انتخاب‌ها</string>
     <string name="bypass_apps">پراکسی نشوند</string>
@@ -186,7 +186,7 @@
     <string name="invalid_server">نام سرور نادرست است</string>
     <string name="service_failed">ناموفق: </string>
     <string name="stop">توقف</string>
-    <string name="stopping">خاموش کردن...</string>
+    <string name="stopping">خاموش کردن…</string>
     <string name="vpn_error">%s</string>
     <string name="vpn_permission_denied">اجازه ایجاد سرویس VPN داده نشد.</string>
     <string name="reboot_required">راه‌اندازی VPN ناموفق بود، بهتر است یک‌بار دستگاهتان را خاموش و راه‌اندازی مجدد کنید.</string>
@@ -259,7 +259,7 @@
     <string name="deprecated">منسوخ</string>
     <!-- tasker -->
     <!-- status -->
-    <string name="connecting">در حال اتصال...</string>
+    <string name="connecting">در حال اتصال…</string>
     <string name="vpn_connected">متصل شد! برای بررسی اتصال، اینجا کلیک کنید.</string>
     <string name="not_connected">وصل نیست</string>
     <!-- subscriptions -->
@@ -275,7 +275,7 @@
     <string name="ignore_battery_optimizations_sum">چند محدودیت برداشته می‌شود</string>
     <!-- plugin -->
     <string name="plugin">افزونه</string>
-    <string name="plugin_configure">پیکربندی...</string>
+    <string name="plugin_configure">پیکربندی…</string>
     <string name="plugin_disabled">غیرفعال</string>
     <string name="plugin_unknown">افزونه نامشخص %s</string>
     <string name="plugin_untrusted">هشدار: به نظر می‌رسد این افزونه از منابع شناخته‌شده نیست و ممکن است ناامن باشد.</string>
@@ -430,7 +430,7 @@
     <string name="cloudflare_wrap" translatable="false">Cloudflare Warp</string>
     <string name="warp_license">CloudFlare Warp یک ارائه دهنده رایگان WireGuard VPN است. با استفاده از آن، با شرایط استفاده، موافقت می کنید.</string>
     <string name="warp_generate">ایجاد پیکربندی</string>
-    <string name="generating">در حال ایجاد...</string>
+    <string name="generating">در حال ایجاد…</string>
     <string name="tun_implementation">پیاده‌سازی TUN</string>
     <string name="destination_override">بازنویسی مقصد</string>
     <string name="destination_override_summary">از دامنه ردیابی‌شده برای بازنویسی آدرس مقصد استفاده کنید، نه فقط برای مسیریابی.</string>
@@ -444,7 +444,7 @@
     <string name="stun_test">کشف رفتار NAT</string>
     <string name="stun_test_summary">تعیین رفتار NAT و رفتار فیلتر NAT تعریف‌شده در RFC 3478 با استفاده از STUN.</string>
     <string name="start">Start</string>
-    <string name="stun_attest_loading">ممکن است چند دقیقه‌ای طول بکشد...</string>
+    <string name="stun_attest_loading">ممکن است چند دقیقه‌ای طول بکشد…</string>
     <string name="nat_stun_server_hint">سرور STUN</string>
     <string name="nat_result_hint">بررسی نتیجه NAT</string>
     <string name="tools_network">شبکه</string>
@@ -459,7 +459,7 @@
     <string name="invalid_backup_file">فایل پشتیبانی نادرست</string>
     <string name="backup_import">افزودن</string>
     <string name="backup_import_summary">افزودن فایل پشتیبانی، اطلاعات و تنظیمات کنونی را حذف و بازنویسی می‌کند.</string>
-    <string name="backup_importing">افزودن...</string>
+    <string name="backup_importing">افزودن…</string>
 
     <string name="packet_encoding">رمزگذاری بسته</string>
     <string name="acquire_wake_lock">به دست آوردن WakeLock</string>

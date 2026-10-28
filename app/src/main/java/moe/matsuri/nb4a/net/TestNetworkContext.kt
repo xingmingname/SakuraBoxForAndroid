@@ -18,7 +18,6 @@ import libcore.TestNetworkControl
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 
-@TargetApi(Build.VERSION_CODES.M)
 internal class TestNetworkContext private constructor(
     private val network: Network,
     private val selection: TestNetworkSelection<Network>,
@@ -97,6 +96,8 @@ internal class TestNetworkContext private constructor(
         }
     }
 
+    // Only the native FileDescriptor binding path requires API 23; TCP supports API 21/22.
+    @TargetApi(Build.VERSION_CODES.M)
     override fun bindSocket(fd: Int) {
         state.guard {
             checkNetwork()

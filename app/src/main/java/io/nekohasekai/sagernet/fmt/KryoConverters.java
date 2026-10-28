@@ -2,11 +2,9 @@ package io.nekohasekai.sagernet.fmt;
 
 import androidx.room.TypeConverter;
 
-import com.esotericsoftware.kryo.KryoException;
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 
 import io.nekohasekai.sagernet.database.SubscriptionBean;
@@ -26,7 +24,6 @@ import io.nekohasekai.sagernet.fmt.tuic.TuicBean;
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean;
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean;
 import io.nekohasekai.sagernet.ktx.KryosKt;
-import io.nekohasekai.sagernet.ktx.Logs;
 import moe.matsuri.nb4a.proxy.config.ConfigBean;
 import moe.matsuri.nb4a.proxy.neko.NekoBean;
 import moe.matsuri.nb4a.utils.JavaUtil;
@@ -48,15 +45,11 @@ public class KryoConverters {
 
     public static <T extends Serializable> T deserialize(T bean, byte[] bytes) {
         if (bytes == null) return bean;
-        ByteArrayInputStream input = new ByteArrayInputStream(bytes);
-        ByteBufferInput buffer = KryosKt.byteBuffer(input);
-        try {
+        try (ByteBufferInput buffer = KryosKt.byteBuffer(bytes)) {
             bean.deserializeFromBuffer(buffer);
-        } catch (KryoException e) {
-            Logs.INSTANCE.w(e);
+            bean.initializeDefaultValues();
+            return bean;
         }
-        bean.initializeDefaultValues();
-        return bean;
     }
 
     @TypeConverter

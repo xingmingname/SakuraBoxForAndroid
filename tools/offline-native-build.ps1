@@ -1,8 +1,16 @@
-param([string]$GoRoot, [string]$RunDirectory, [string]$OutputName = 'libcore-sing-box-1.14.3.aar', [string]$SharedCache, [string]$JavaHome=$env:JAVA_HOME, [string]$AndroidHome=$env:ANDROID_HOME, [string]$ModuleCache=$env:GOMODCACHE)
+param([string]$GoRoot, [string]$RunDirectory, [string]$OutputName = 'libcore-sing-box-1.14.3.aar', [string]$SharedCache, [string]$JavaHome=$env:JAVA_HOME, [string]$AndroidHome=$env:ANDROID_HOME, [string]$ModuleCache=$env:GOMODCACHE,[switch]$ColdCache)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
+. (Join-Path $PSScriptRoot 'build-cache.ps1')
 if (!$GoRoot) { $GoRoot=Join-Path $root '.local-builds\toolchains\go1.26.9' }
+$env:GOTOOLCHAIN='local'
+if (!$ModuleCache) {
+    # Resolve the existing download cache before isolating GOPATH for gomobile.
+    $ModuleCache=(& "$GoRoot\bin\go.exe" env GOMODCACHE).Trim()
+    if ($LASTEXITCODE -ne 0 -or !$ModuleCache) {throw 'Cannot resolve the existing Go module download cache'}
+}
 if (!$RunDirectory) { $RunDirectory=Join-Path $root ('.local-builds\native-'+(Get-Date -Format 'yyyyMMdd-HHmmss')) }
+$goCache=Get-SakuraGoCache -Root $root -GoRoot $GoRoot -Role native -SharedCache $SharedCache -RunDirectory $RunDirectory -ColdCache:$ColdCache -ModuleCache $ModuleCache
 New-Item -ItemType Directory -Force -Path $RunDirectory | Out-Null
 $RunDirectory=(Resolve-Path -LiteralPath $RunDirectory).Path
 if ([IO.Path]::GetFileName($OutputName) -ne $OutputName) {throw 'OutputName must be a filename'}
@@ -16,7 +24,8 @@ function Get-NativeSourceManifest {
 }
 $sourceManifest=Get-NativeSourceManifest
 $env:GOROOT=$GoRoot; $env:GOTOOLCHAIN='local';$env:GOPROXY='off';$env:GOSUMDB='off';$env:GOFLAGS='-mod=readonly'
-$env:GOPATH=Join-Path $RunDirectory 'gopath';if (!$ModuleCache) {$ModuleCache=(& "$GoRoot\bin\go.exe" env GOMODCACHE).Trim()}; $env:GOMODCACHE=$ModuleCache;$env:GOCACHE=if ($SharedCache) { $SharedCache } else { Join-Path $RunDirectory 'go-cache' };$env:CGO_ENABLED='1'
+$env:GOPATH=Join-Path $RunDirectory 'gopath';$env:GOMODCACHE=$ModuleCache;$env:GOCACHE=$goCache;$env:CGO_ENABLED='1'
+Write-SakuraBuildRetention -RunDirectory $RunDirectory -Kind native -Caches @{gocache=$env:GOCACHE;gomodcache=$env:GOMODCACHE;gomobile=(Join-Path $RunDirectory 'mobile-cache')}
 New-Item -ItemType Directory -Force -Path (Join-Path $env:GOPATH 'pkg\gomobile') | Out-Null
 if (!$JavaHome) {throw 'Set JAVA_HOME or -JavaHome to a JDK 21 directory'}; $env:JAVA_HOME=$JavaHome
 if (!$AndroidHome) {throw 'Set ANDROID_HOME or -AndroidHome to your SDK'}; $env:ANDROID_HOME=$AndroidHome

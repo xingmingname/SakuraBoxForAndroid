@@ -2,6 +2,8 @@ package io.nekohasekai.sagernet.fmt.v2ray
 
 import android.text.TextUtils
 import com.google.gson.Gson
+import io.nekohasekai.sagernet.fmt.ConnectionSecurity
+import io.nekohasekai.sagernet.fmt.ProtocolOptions
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
@@ -32,7 +34,7 @@ data class VmessQRCode(
 )
 
 fun StandardV2RayBean.isTLS(): Boolean {
-    return security == "tls"
+    return security == "tls" || security == "reality"
 }
 
 fun StandardV2RayBean.setTLS(boolean: Boolean) {
@@ -162,6 +164,10 @@ fun StandardV2RayBean.parseDuckSoft(url: HttpUrl) {
 
     when (security) {
         "tls", "reality" -> {
+            if (security == "reality") {
+                protocolOptionsJson = ProtocolOptions.set(ProtocolOptions.parse(protocolOptionsJson),
+                    ProtocolOptions.Field("tls.reality.enabled", ProtocolOptions.Kind.BOOLEAN), "true").toString()
+            }
             security = "tls"
             url.queryParameter("allowInsecure")?.let {
                 allowInsecure = it == "1" || it == "true"
@@ -238,7 +244,7 @@ fun StandardV2RayBean.parseDuckSoft(url: HttpUrl) {
 
     url.queryParameter("packetEncoding")?.let {
         when (it) {
-            "packet" -> packetEncoding = 1
+            "packet", "packetaddr" -> packetEncoding = 1
             "xudp" -> packetEncoding = 2
         }
     }
@@ -414,7 +420,7 @@ fun VMessBean.toV2rayN(): String {
 
         if (isTLS()) {
             tls = "tls"
-            if (bean.realityPubKey.isNotBlank()) {
+            if (ConnectionSecurity.mode(bean) == ConnectionSecurity.Mode.REALITY) {
                 tls = "reality"
             }
         }
@@ -475,26 +481,27 @@ fun StandardV2RayBean.toUriVMessVLESSTrojan(isTrojan: Boolean): String {
         }
     }
 
+    if (isTrojan && security == "none") builder.addQueryParameter("security", "none")
     if (security.isNotBlank() && security != "none") {
         builder.addQueryParameter("security", security)
         when (security) {
-            "tls" -> {
+            "tls", "reality" -> {
                 if (sni.isNotBlank()) {
                     builder.addQueryParameter("sni", sni)
                 }
                 if (alpn.isNotBlank()) {
                     builder.addQueryParameter("alpn", alpn.replace("\n", ","))
                 }
-                if (certificates.isNotBlank()) {
+                if (ConnectionSecurity.mode(this) == ConnectionSecurity.Mode.TLS && certificates.isNotBlank()) {
                     builder.addQueryParameter("cert", certificates)
                 }
-                if (allowInsecure) {
+                if (ConnectionSecurity.mode(this) == ConnectionSecurity.Mode.TLS && allowInsecure) {
                     builder.addQueryParameter("allowInsecure", "1")
                 }
                 if (utlsFingerprint.isNotBlank()) {
                     builder.addQueryParameter("fp", utlsFingerprint)
                 }
-                if (realityPubKey.isNotBlank()) {
+                if (ConnectionSecurity.mode(this) == ConnectionSecurity.Mode.REALITY) {
                     builder.setQueryParameter("security", "reality")
                     builder.addQueryParameter("pbk", realityPubKey)
                     builder.addQueryParameter("sid", realityShortId)
@@ -590,15 +597,16 @@ fun buildSingBoxOutboundStreamSettings(bean: StandardV2RayBean): V2RayTransportO
 }
 
 fun buildSingBoxOutboundTLS(bean: StandardV2RayBean, globalAllowInsecure: Boolean = DataStore.globalAllowInsecure): OutboundTLSOptions? {
-    if (bean.security != "tls") return null
+    if (!bean.isTLS()) return null
+    val realityMode = ConnectionSecurity.mode(bean) == ConnectionSecurity.Mode.REALITY
     return OutboundTLSOptions().apply {
         enabled = true
-        insecure = bean.allowInsecure || globalAllowInsecure
+        insecure = !realityMode && (bean.allowInsecure || globalAllowInsecure)
         if (bean.sni.isNotBlank()) server_name = bean.sni
         if (bean.alpn.isNotBlank()) alpn = bean.alpn.listByLineOrComma()
-        if (bean.certificates.isNotBlank()) certificate = bean.certificates
+        if (!realityMode && bean.certificates.isNotBlank()) certificate = bean.certificates
         var fp = bean.utlsFingerprint
-        if (bean.realityPubKey.isNotBlank()) {
+        if (realityMode) {
             reality = OutboundRealityOptions().apply {
                 enabled = true
                 public_key = bean.realityPubKey
@@ -612,7 +620,7 @@ fun buildSingBoxOutboundTLS(bean: StandardV2RayBean, globalAllowInsecure: Boolea
                 fingerprint = fp
             }
         }
-        if (bean.enableECH) {
+        if (!realityMode && bean.enableECH) {
             ech = OutboundECHOptions().apply {
                 enabled = true
                 if (bean.echConfig.isNotBlank()) {

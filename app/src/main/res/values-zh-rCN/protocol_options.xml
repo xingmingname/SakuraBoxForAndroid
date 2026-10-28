@@ -3,12 +3,11 @@
     <string name="protocol_advanced_options">协议高级选项</string>
     <string name="protocol_core_default">核心默认（省略）</string>
     <string name="protocol_duration_help">留空遵循核心默认行为。请填写带单位的时长，例如 30s、500ms 或 1m30s。</string>
-    <string name="protocol_pin_help">每行一个 Base64 编码的 SHA-256 公钥摘要。当前核心中，公钥固定会替代常规证书链验证，不可与自定义 CA 证书并用。</string>
+    <string name="protocol_pin_help">每行填写一个 Base64 编码的公钥 SHA-256 值</string>
     <string name="protocol_list_help">用换行或逗号分隔。留空则移除此覆盖值。</string>
     <string name="protocol_default_help">留空则省略此覆盖值，保留原设置或核心默认行为。</string>
     <string name="protocol_option_invalid">%1$s 的值无效，请检查格式和范围。</string>
     <string name="protocol_option_invalid_json">出站覆盖内容不是 JSON 对象。请使用原有 JSON 编辑器修正；原始数据未被丢弃。</string>
-    <string name="protocol_options_conflict">高级参数无效或存在冲突。请检查 TLS 版本、ECH/Reality、证书与公钥固定、跳跃间隔及 TUIC 转发设置。此次未保存。</string>
     <string name="protocol_connect_timeout">连接超时</string>
     <string name="protocol_idle_session_check_interval">空闲会话检查间隔</string>
     <string name="protocol_idle_session_timeout">空闲会话超时时间</string>
@@ -61,7 +60,8 @@
     <string name="protocol_clear_options_summary">清除此区域全部参数（包括导入的协议扩展）。保留手工 JSON 覆盖，点击应用后保存。</string>
     <string name="protocol_manual_override_priority">已有手工出站 JSON 覆盖的优先级高于此处参数。</string>
     <string name="protocol_hy2_fixed_alpn">HTTP/3 ALPN：h3（Hysteria2 固定值）</string>
-    <string name="protocol_quic_static_ech_required">QUIC ECH 需要静态 ECH CONFIGS PEM。当前核心不支持动态 ECH DNS 查询；已保存的查询名会保留，但不参与连接。</string>
     <string name="protocol_grpc_lite_supported">gRPC Lite 支持空闲和 Ping 超时；本构建不支持无活动流时的保活选项。</string>
-    <string name="protocol_static_ech_help">粘贴完整的 ECH CONFIGS PEM，包含 BEGIN 和 END 行。核心会校验 ECH 配置；QUIC 的查询名不能代替静态配置。</string>
+    <string name="protocol_static_ech_help">粘贴完整的 ECH CONFIGS PEM 并保留 BEGIN 和 END 行</string>
+    <string name="chain_nesting_too_deep">链式代理嵌套超过 128 层。</string>
+    <string name="protocol_tls_curves_standard_only">仅标准 Go TLS 支持自定义曲线。uTLS 和 REALITY 使用各自的握手配置；已保存的值会保留。</string>
 </resources>

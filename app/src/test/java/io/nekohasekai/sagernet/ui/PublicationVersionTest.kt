@@ -7,8 +7,8 @@ import org.junit.Test
 
 class PublicationVersionTest {
     @Test fun actualBuildMetadataUsesThePublicationVersion() {
-        assertEquals("1.0.1", BuildConfig.VERSION_NAME)
-        assertEquals(235, BuildConfig.VERSION_CODE)
+        assertEquals("1.0.2", BuildConfig.VERSION_NAME)
+        assertEquals(240, BuildConfig.VERSION_CODE)
         val suffix = if (BuildConfig.DEBUG) ".debug" else ""
         assertEquals("app.sakurabox.client$suffix", BuildConfig.APPLICATION_ID)
     }

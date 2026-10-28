@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.ui
 
+import android.annotation.SuppressLint
 import android.util.AtomicFile
 import moe.matsuri.nb4a.utils.AssetPaths
 
@@ -357,6 +358,8 @@ class AssetsActivity : ThemedActivity() {
         return true
     }
 
+    // Back is intentionally consumed by this page; calling super bypasses its exit policy.
+    @SuppressLint("MissingSuperCall")
     override fun onBackPressed() {
         finish()
     }

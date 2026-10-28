@@ -235,6 +235,7 @@ data class ProxyEntity(
     }
 
     fun haveStandardLink(): Boolean {
+        if (io.nekohasekai.sagernet.fmt.NodeJson.enabled(requireBean())) return false
         if (io.nekohasekai.sagernet.fmt.ProtocolOptions.hasAdvancedOptions(requireBean())) return false
         (requireBean() as? AnyTLSBean)?.let {
             if (!it.echConfig.isNullOrBlank() || !it.alpn.isNullOrBlank() || !it.certificates.isNullOrBlank()) return false
@@ -250,6 +251,7 @@ data class ProxyEntity(
     }
 
     fun toStdLink(compact: Boolean = false): String = with(requireBean()) {
+        if (io.nekohasekai.sagernet.fmt.NodeJson.enabled(this)) return@with toUniversalLink()
         if (io.nekohasekai.sagernet.fmt.ProtocolOptions.hasAdvancedOptions(this) ||
             (this is AnyTLSBean && (!echConfig.isNullOrBlank() || !alpn.isNullOrBlank() || !certificates.isNullOrBlank()))) {
             return@with toUniversalLink()
@@ -315,6 +317,7 @@ data class ProxyEntity(
     }
 
     fun needExternal(): Boolean {
+        if (requireBean().jsonMode in 1..2) return false
         return when (type) {
             TYPE_TROJAN_GO -> true
             TYPE_MIERU -> true
@@ -531,6 +534,12 @@ data class ProxyEntity(
 
         @Update
         fun updateProxy(proxy: ProxyEntity): Int
+
+        @Query("UPDATE proxy_entities SET status = :status, ping = :ping, error = :error WHERE id = :id")
+        fun updateTestResult(id: Long, status: Int, ping: Int, error: String?): Int
+
+        @Query("UPDATE proxy_entities SET rx = :rx, tx = :tx WHERE id = :id")
+        fun updateTraffic(id: Long, rx: Long, tx: Long): Int
 
         @Update
         fun updateProxy(proxies: List<ProxyEntity>): Int

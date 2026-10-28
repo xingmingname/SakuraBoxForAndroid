@@ -1,5 +1,6 @@
 package moe.matsuri.nb4a.proxy.anytls
 
+import io.nekohasekai.sagernet.fmt.ConnectionSecurity
 import io.nekohasekai.sagernet.ktx.linkBuilder
 import io.nekohasekai.sagernet.ktx.toLink
 import io.nekohasekai.sagernet.ktx.urlSafe
@@ -8,6 +9,7 @@ import moe.matsuri.nb4a.utils.listByLineOrComma
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 fun buildSingBoxOutboundAnyTLSBean(bean: AnyTLSBean): SingBoxOptions.Outbound_AnyTLSOptions {
+    val realityMode = ConnectionSecurity.mode(bean) == ConnectionSecurity.Mode.REALITY
     return SingBoxOptions.Outbound_AnyTLSOptions().apply {
         type = "anytls"
         server = bean.serverAddress
@@ -17,18 +19,18 @@ fun buildSingBoxOutboundAnyTLSBean(bean: AnyTLSBean): SingBoxOptions.Outbound_An
         tls = SingBoxOptions.OutboundTLSOptions().apply {
             enabled = true
             server_name = bean.sni.takeIf { !it.isNullOrBlank() }
-            if (bean.allowInsecure) insecure = true
+            if (!realityMode && bean.allowInsecure) insecure = true
             alpn = bean.alpn.takeIf { !it.isNullOrBlank() }?.listByLineOrComma()
-            bean.certificates.takeIf { !it.isNullOrBlank() }?.let {
+            bean.certificates.takeIf { !realityMode && !it.isNullOrBlank() }?.let {
                 certificate = it
             }
-            bean.utlsFingerprint.takeIf { !it.isNullOrBlank() }?.let {
+            (bean.utlsFingerprint.takeIf { !it.isNullOrBlank() } ?: if (realityMode) "chrome" else null)?.let {
                 utls = SingBoxOptions.OutboundUTLSOptions().apply {
                     enabled = true
                     fingerprint = it
                 }
             }
-            bean.echConfig.takeIf { !it.isNullOrBlank() }?.let {
+            bean.echConfig.takeIf { !realityMode && !it.isNullOrBlank() }?.let {
                 // In new version, some complex options will be deprecated, so we just do this.
                 ech = SingBoxOptions.OutboundECHOptions().apply {
                     enabled = true

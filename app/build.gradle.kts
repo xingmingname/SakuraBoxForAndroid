@@ -66,7 +66,11 @@ dependencies {
     implementation(fileTree("libs") { exclude("libcore*.aar") })
     implementation(files(localCoreAar))
 
+    // Keep the tested dependency version; upgrades require separate compatibility validation.
+    //noinspection GradleDependency
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
+    // Keep the tested dependency version; upgrades require separate compatibility validation.
+    //noinspection GradleDependency
     implementation("androidx.core:core-ktx:1.9.0")
     implementation("androidx.recyclerview:recyclerview:1.3.0")
     implementation("androidx.activity:activity-ktx:1.10.1")
@@ -74,14 +78,22 @@ dependencies {
     implementation("androidx.browser:browser:1.5.0")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    // Keep the tested dependency version; upgrades require separate compatibility validation.
+    //noinspection GradleDependency
     implementation("androidx.navigation:navigation-fragment-ktx:2.5.3")
+    // Keep the tested dependency version; upgrades require separate compatibility validation.
+    //noinspection GradleDependency
     implementation("androidx.navigation:navigation-ui-ktx:2.5.3")
     implementation("androidx.preference:preference-ktx:1.2.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.work:work-runtime-ktx:2.8.1")
     implementation("androidx.work:work-multiprocess:2.8.1")
 
+    // Keep the tested dependency version; upgrades require separate compatibility validation.
+    //noinspection GradleDependency
     implementation("com.google.android.material:material:1.8.0")
+    // Keep the tested dependency version; upgrades require separate compatibility validation.
+    //noinspection GradleDependency
     implementation("com.google.code.gson:gson:2.9.0")
 
     implementation("com.github.jenly1314:zxing-lite:2.1.1")

@@ -194,8 +194,12 @@ class SagerNet : Application(),
             application, Intent(application, SagerConnection.serviceClass)
         )
 
-        fun reloadService() =
-            application.sendBroadcast(Intent(Action.RELOAD).setPackage(application.packageName))
+        const val JSON_PROFILE_ID = "jsonProfileId"
+
+        fun reloadService(jsonProfileId: Long? = null) =
+            application.sendBroadcast(Intent(Action.RELOAD).setPackage(application.packageName).apply {
+                jsonProfileId?.let { putExtra(JSON_PROFILE_ID, it) }
+            })
 
         fun stopService() =
             application.sendBroadcast(Intent(Action.CLOSE).setPackage(application.packageName))

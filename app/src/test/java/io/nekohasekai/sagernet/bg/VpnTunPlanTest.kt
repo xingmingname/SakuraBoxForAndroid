@@ -21,4 +21,23 @@ class VpnTunPlanTest {
         assertThrows(IllegalArgumentException::class.java) { VpnTunPlan.parse("""{"MTU":1400}""") }
         assertThrows(IllegalArgumentException::class.java) { VpnTunPlan.parse("""{"MTU":0,"Inet4Address":["10.0.0.1/24"]}""") }
     }
+    @Test fun jsonRoutesHonorExclusionsOnOlderAndroidWithoutTouchingOrdinaryPlans() {
+        val plan = VpnTunPlan.parse("""{"MTU":1400,"AutoRoute":true,"Inet4Address":["10.0.0.1/24"],"Inet4RouteAddress":["10.0.0.0/24"],"Inet4RouteExcludeAddress":["10.0.0.128/25"]}""")
+        assertEquals(listOf("10.0.0.0" to 25), plan.jsonRoutes())
+        plan.autoRoute = false
+        assertTrue(plan.jsonRoutes().isEmpty())
+        assertEquals(listOf("10.0.0.2"), plan.dnsServers())
+    }
+    @Test fun ipv6RoutesAndFamilyDefaultsRemainDistinct() {
+        val plan = VpnTunPlan.parse("""{"MTU":1400,"AutoRoute":true,"Inet6Address":["fd00::1/126"],"Inet6RouteAddress":["fd00::/126"],"Inet6RouteExcludeAddress":["fd00::2/127"]}""")
+        assertEquals(listOf("fd00:0:0:0:0:0:0:0" to 127), plan.jsonRoutes())
+        plan.routes6 = null; plan.exclude6 = null
+        assertEquals(listOf("0:0:0:0:0:0:0:0" to 0), plan.jsonRoutes())
+    }
+    @Test fun exclusionsCanRemoveTheWholeFamilyAndCannotAcceptDnsNames() {
+        val plan = VpnTunPlan.parse("""{"MTU":1400,"AutoRoute":true,"Inet4Address":["10.0.0.1/24"],"Inet4RouteExcludeAddress":["0.0.0.0/0"]}""")
+        assertTrue(plan.jsonRoutes().isEmpty())
+        plan.routes4 = listOf("example.invalid/24")
+        assertThrows(IllegalArgumentException::class.java) { plan.jsonRoutes() }
+    }
 }

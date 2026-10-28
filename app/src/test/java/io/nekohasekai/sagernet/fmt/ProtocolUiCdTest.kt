@@ -2,6 +2,7 @@ package io.nekohasekai.sagernet.fmt
 
 import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.fmt.http.HttpBean
+import io.nekohasekai.sagernet.fmt.hysteria.canUseSingBox
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.hysteria.buildSingBoxOutboundHysteriaBean
 import io.nekohasekai.sagernet.fmt.ssh.SSHBean
@@ -50,7 +51,6 @@ class ProtocolUiCdTest {
         else -> error("Unexpected fixture")
     }
     private fun final(name: String, bean: AbstractBean): com.google.gson.JsonObject {
-        ProtocolOptions.validate(bean, ProtocolOptions.parse(bean.protocolOptionsJson))
         val node = out(bean)
         ProtocolOptions.applyTo(node, bean)
         node._hack_custom_config = bean.customOutboundJson
@@ -88,23 +88,29 @@ class ProtocolUiCdTest {
         assertTrue(ProtocolOptions.supportsCustomAlpn(h1))
         assertEquals("custom-h1", ProtocolOptions.get(final("hy1-alpn", h1), "tls.alpn")!!.asJsonArray[0].asString)
         b.protocol = HysteriaBean.PROTOCOL_FAKETCP
-        assertTrue(ProtocolOptions.supportsCustomAlpn(b))
+        assertFalse(ProtocolOptions.supportsCustomAlpn(b))
+        assertTrue(b.canUseSingBox())
+        assertEquals("h3", ProtocolOptions.get(final("hy2-retained-faketcp-alpn", b), "tls.alpn")!!.asJsonArray[0].asString)
+        assertEquals("legacy-custom", b.alpn)
+        h1.protocol = HysteriaBean.PROTOCOL_FAKETCP
+        assertTrue(ProtocolOptions.supportsCustomAlpn(h1))
+        assertFalse(h1.canUseSingBox())
         for (node in v2()) {
             node.alpn = "h2"
             assertTrue(ProtocolOptions.supportsCustomAlpn(node))
             assertEquals("h2", ProtocolOptions.get(final("alpn-" + ProtocolOptions.protocol(node), node), "tls.alpn")!!.asJsonArray[0].asString)
         }
     }
-    @Test fun dynamicQuicEchIsRejectedBeforeConfigurationUseAndDataPreserved() {
+    @Test fun dynamicQuicEchDoesNotTriggerClientSidePreflightRejection() {
         for (b in quic()) {
             b.protocolOptionsJson = """{"tls":{"ech":{"enabled":true,"query_server_name":"query.invalid"}}}"""
             val stored = KryoConverters.serialize(b)
-            assertFalse(ProtocolOptions.editableField(b, "tls.ech.query_server_name"))
-            assertThrows(ProtocolOptions.QuicECHConfigException::class.java) { final("must-not-exist", b) }
-            assertThrows(ProtocolOptions.QuicECHConfigException::class.java) { ProtocolOptions.applyTo(out(b), b) }
+            val generated = final("quic-ech-deferred-"+ProtocolOptions.protocol(b), b)
+            assertTrue(ProtocolOptions.get(generated,"tls.ech.enabled")!!.asBoolean)
             assertArrayEquals(stored, KryoConverters.serialize(b))
         }
     }
+
     @Test fun staticQuicEchSurvivesCloneAndFinalConfigWhileDynamicNameIsOmitted() {
         for (source in quic()) {
             val root = ProtocolOptions.parse("""{"tls":{"ech":{"enabled":true,"query_server_name":"retained.invalid"}}}""")
@@ -117,20 +123,24 @@ class ProtocolUiCdTest {
             assertTrue(b.protocolOptionsJson.contains("retained.invalid"))
         }
     }
-    @Test fun invalidStaticEchDoesNotPassAsAValidQuicConfiguration() {
+    @Test fun staticEchTextIsPreservedForNativeValidation() {
         for (bad in listOf("", "not-pem", "-----BEGIN ECH CONFIGS-----\nAAAA\n-----END ECH CONFIGS-----")) {
             val b = hy(2)
-            b.protocolOptionsJson = """{"tls":{"ech":{"enabled":true}}}"""
-            val root = ProtocolOptions.parse(b.protocolOptionsJson)
+            val root = ProtocolOptions.parse("""{"tls":{"ech":{"enabled":true}}}""")
             root["tls"].asJsonObject["ech"].asJsonObject.addProperty("config", bad)
-            assertThrows(ProtocolOptions.QuicECHConfigException::class.java) { ProtocolOptions.validate(b, root) }
+            b.protocolOptionsJson = root.toString()
+            val generated=final("quic-ech-text",b)
+            assertEquals(bad,ProtocolOptions.get(generated,"tls.ech.config")!!.asString)
+            assertEquals(root.toString(),b.clone().protocolOptionsJson)
         }
     }
+
     @Test fun tcpDynamicEchAndExplicitOverridesKeepTheirExistingPriority() {
         val tcp = v2()[0].apply { enableECH = true; protocolOptionsJson = """{"tls":{"ech":{"query_server_name":"tcp.invalid"}}}""" }
         assertTrue(ProtocolOptions.editableField(tcp, "tls.ech.query_server_name"))
         assertEquals("tcp.invalid", ProtocolOptions.get(final("tcp-dynamic-ech", tcp), "tls.ech.query_server_name")!!.asString)
         val b = hy(2).apply {
+            jsonMode = NodeJson.LEGACY
             protocolOptionsJson = """{"tls":{"ech":{"enabled":true,"query_server_name":"stored.invalid"}}}"""
             customOutboundJson = """{"tls":{"ech":{"enabled":false}}}"""
         }

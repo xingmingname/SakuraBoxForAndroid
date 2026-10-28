@@ -1,7 +1,7 @@
 package io.nekohasekai.sagernet.ui.profile
 
-import android.text.InputType
 import android.widget.Toast
+import android.text.InputType
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
 import androidx.preference.Preference
@@ -9,6 +9,7 @@ import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.fmt.ConnectionSecurity
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.ProtocolOptions
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
@@ -98,16 +99,12 @@ internal class ProtocolAdvancedPreferences(
         }
         category = group
         fragment.preferenceScreen.addPreference(group)
-        if (ProtocolOptions.isNativeQuic(current)) group.addPreference(Preference(context).apply {
-            title = context.getString(R.string.protocol_quic_static_ech_required)
-            isSelectable = false
-        })
         if (current is StandardV2RayBean && current.type == "grpc" && ProtocolOptions.protocol(current) in setOf("vless", "vmess", "trojan"))
             group.addPreference(Preference(context).apply {
                 title = context.getString(R.string.protocol_grpc_lite_supported)
                 isSelectable = false
             })
-        if (!current.customOutboundJson.isNullOrBlank()) group.addPreference(Preference(context).apply {
+        if (io.nekohasekai.sagernet.fmt.NodeJson.enabled(current)) group.addPreference(Preference(context).apply {
             title = context.getString(R.string.protocol_manual_override_priority)
             isSelectable = false
         })
@@ -115,7 +112,10 @@ internal class ProtocolAdvancedPreferences(
             title = context.getString(R.string.protocol_clear_options)
             summary = context.getString(R.string.protocol_clear_options_summary)
             setOnPreferenceClickListener {
-                DataStore.profileCacheStore.putString(CACHE_KEY, "")
+                val retained = ConnectionSecurity.clearAdvancedOptions(current,
+                    try { ProtocolOptions.parse(DataStore.profileCacheStore.getString(CACHE_KEY)) }
+                    catch (_: Exception) { com.google.gson.JsonObject() })
+                DataStore.profileCacheStore.putString(CACHE_KEY, if (retained.size() == 0) "" else retained.toString())
                 refresh()
                 true
             }
@@ -129,8 +129,8 @@ internal class ProtocolAdvancedPreferences(
         }
         for (field in fields) {
             if (!ProtocolOptions.editableField(current, field.path)) continue
-            if (field.path.startsWith("tls.") && current is StandardV2RayBean && current.security != "tls") continue
-            val reality = current is StandardV2RayBean && !current.realityPubKey.isNullOrBlank() || ProtocolOptions.get(root, "tls.reality.enabled")?.asBoolean == true
+            if (!ConnectionSecurity.showsAdvancedField(current, root, field.path)) continue
+            val reality = current is StandardV2RayBean && ConnectionSecurity.mode(current, root) == ConnectionSecurity.Mode.REALITY || ProtocolOptions.get(root, "tls.reality.enabled")?.asBoolean == true
             if (field.path in setOf("tls.disable_sni", "tls.certificate_public_key_sha256") && reality) continue
             if (field.path == "tls.ech.query_server_name") {
                 val ech = current is StandardV2RayBean && current.enableECH == true || current is AnyTLSBean && !current.echConfig.isNullOrBlank() || ProtocolOptions.get(root, "tls.ech.enabled")?.asBoolean == true
@@ -173,15 +173,21 @@ internal class ProtocolAdvancedPreferences(
             pref.key = "protocolAdvanced." + field.path
             pref.title = label
             pref.bindProtocolValue(existing)
+            if (field.path == "tls.curve_preferences" && !ProtocolOptions.supportsTlsCurvePreferences(current, root)) {
+                pref.isEnabled = false
+                pref.summaryProvider = null
+                pref.summary = context.getString(R.string.protocol_tls_curves_standard_only)
+            }
             pref.setOnPreferenceChangeListener { _, value ->
                 try {
                     val updated = ProtocolOptions.set(ProtocolOptions.parse(DataStore.profileCacheStore.getString(CACHE_KEY)), field, value.toString())
-                    // Cross-field validation happens before saving, so paired fields can be edited in either order.
                     DataStore.profileCacheStore.putString(CACHE_KEY, if (updated.size() == 0) "" else updated.toString())
                     if (field.path in setOf("obfs.type", "multiplex.enabled", "tls.ech.enabled")) fragment.view?.post { refresh() }
                     true
-                } catch (_: Exception) {
-                    Toast.makeText(context, context.getString(R.string.protocol_option_invalid, label), Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    val message = if (field.path.startsWith("tls.")) context.getString(R.string.protocol_option_invalid_json)
+                        else context.getString(R.string.protocol_option_invalid, label)
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                     false
                 }
             }

@@ -1,0 +1,8 @@
+<resources>
+    <string name="connection_security">连接安全性</string>
+    <string name="connection_security_none">None（无 TLS 安全层）</string>
+    <string name="connection_reality_public_key">REALITY 公钥</string>
+    <string name="connection_reality_short_id">REALITY Short ID</string>
+    <string name="connection_reality_public_key_help">必填：服务端的 32 字节公钥，使用不带填充的 base64url 格式。这不是证书固定值。</string>
+    <string name="connection_reality_short_id_help">填写服务端的 Short ID：偶数个十六进制字符，最多 16 个。仅当服务端允许时可留空。</string>
+</resources>

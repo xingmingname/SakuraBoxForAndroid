@@ -17,11 +17,10 @@ import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.proxy.shadowtls.ShadowTLSBean
 import java.math.BigDecimal
-import android.util.Base64
 
 /** Native outbound fields stored in the versioned common bean extension. */
 object ProtocolOptions {
-    enum class Kind { TEXT, DURATION, INTEGER, BOOLEAN, LIST, PINS, CHOICE }
+    enum class Kind { TEXT, PEM, DURATION, INTEGER, BOOLEAN, LIST, PINS, CHOICE }
     data class Field(val path: String, val kind: Kind, val min: Long = 0,
                      val max: Long = Int.MAX_VALUE.toLong(), val choices: List<String> = emptyList())
     private fun duration(p: String) = Field(p, Kind.DURATION)
@@ -35,7 +34,7 @@ object ProtocolOptions {
         is HttpBean -> "http"
         is TrojanBean -> "trojan"
         is VMessBean -> if (bean.isVLESS) "vless" else "vmess"
-        is HysteriaBean -> if (bean.protocol != HysteriaBean.PROTOCOL_UDP) null else if (bean.protocolVersion == 1) "hysteria" else "hysteria2"
+        is HysteriaBean -> if (bean.protocolVersion == 2) "hysteria2" else if (bean.protocol == HysteriaBean.PROTOCOL_UDP) "hysteria" else null
         is TuicBean -> if (bean.protocolVersion == 5) "tuic" else null
         is SOCKSBean -> "socks"
         is ShadowsocksBean -> "shadowsocks" // Its supported SIP003 plugins are handled by the native SS builder.
@@ -69,7 +68,7 @@ object ProtocolOptions {
 
     /** A copy for generated configuration. Hidden legacy data remains intact in the saved bean. */
     fun effectiveOptions(bean: AbstractBean, root: JsonObject): JsonObject {
-        var result = root.deepCopy()
+        var result = ConnectionSecurity.effectiveOptions(bean, root)
         fun omit(path: String) {
             result = set(result, Field(path, Kind.TEXT), "")
         }
@@ -82,43 +81,9 @@ object ProtocolOptions {
         if (protocol(bean) == "hysteria2") {
             result = set(result, Field("tls.alpn", Kind.LIST), "h3")
         }
+        if (result.get("tls")?.isJsonObject == true)
+            MtlsOptions.omitBlankInline(result.getAsJsonObject("tls"))
         return result
-    }
-
-    class QuicECHConfigException : IllegalArgumentException(
-        "This core requires a static ECH CONFIGS PEM for QUIC; dynamic ECH DNS lookup is unsupported")
-
-    private fun validateQuicECH(bean: AbstractBean, root: JsonObject) {
-        if (!isNativeQuic(bean)) return
-        // Explicit custom JSON still has final priority, including disabling ECH or supplying a file.
-        val merged = root.deepCopy()
-        fun merge(target: JsonObject, source: JsonObject) {
-            for ((key, value) in source.entrySet()) {
-                val existing = target.get(key)
-                if (existing?.isJsonObject == true && value.isJsonObject) merge(existing.asJsonObject, value.asJsonObject)
-                else target.add(key, value.deepCopy())
-            }
-        }
-        merge(merged, parse(bean.customOutboundJson))
-        if (get(merged, "tls.ech.enabled")?.asBoolean != true) return
-        val config = get(merged, "tls.ech.config")
-        if (!get(merged, "tls.ech.config_path")?.asString.isNullOrBlank() &&
-            (config == null || config.isJsonArray && config.asJsonArray.size() == 0)) return // Core checks the file.
-        val pem = when {
-            config?.isJsonArray == true -> config.asJsonArray.joinToString("\n") { it.asString }
-            config?.isJsonPrimitive == true -> config.asString
-            else -> throw QuicECHConfigException()
-        }.trim()
-        val begin = "-----BEGIN ECH CONFIGS-----"
-        val end = "-----END ECH CONFIGS-----"
-        if (!pem.startsWith(begin) || !pem.endsWith(end)) throw QuicECHConfigException()
-        val body = pem.removePrefix(begin).removeSuffix(end).filterNot { it.isWhitespace() }
-        if (!body.matches(Regex("[A-Za-z0-9+/=]+"))) throw QuicECHConfigException()
-        val bytes = try { Base64.decode(body, Base64.NO_WRAP) }
-            catch (_: IllegalArgumentException) { throw QuicECHConfigException() }
-        // ECHConfigList is a length-prefixed non-empty list; cryptographic validity remains the core's job.
-        if (bytes.size < 6 || ((bytes[0].toInt() and 255) shl 8 or (bytes[1].toInt() and 255)) != bytes.size - 2)
-            throw QuicECHConfigException()
     }
 
     fun fields(bean: AbstractBean): List<Field> {
@@ -216,9 +181,16 @@ object ProtocolOptions {
     }
 
     fun value(field: Field, input: String): JsonElement? {
-        val v = input.trim()
-        if (v.isEmpty()) return null // Omitted, not a forced zero/false.
+        val v = if (field.kind == Kind.PEM) input else input.trim()
+        if (v.isBlank()) return null // Omitted, not a forced zero/false.
+        if (field.path.startsWith("tls.") && field.kind != Kind.BOOLEAN) return when (field.kind) {
+            Kind.LIST, Kind.PINS -> com.google.gson.JsonArray().apply {
+                v.split(',', '\n').map { it.trim() }.filter { it.isNotEmpty() }.forEach { add(it) }
+            }
+            else -> JsonPrimitive(v)
+        }
         return when (field.kind) {
+            Kind.PEM -> JsonPrimitive(v)
             Kind.DURATION -> { durationNanos(v); JsonPrimitive(v) }
             Kind.INTEGER -> {
                 require(v.matches(Regex("[0-9]+"))) { "Use a non-negative whole number" }
@@ -232,11 +204,6 @@ object ProtocolOptions {
                 val parts = v.split(',', '\n').map { it.trim() }.filter { it.isNotEmpty() }
                 require(parts.isNotEmpty()) { "Empty list" }
                 require(field.choices.isEmpty() || parts.all { it in field.choices }) { "Unsupported list value for ${field.path}" }
-                if (field.kind == Kind.PINS) for (pin in parts) {
-                    require(pin.matches(Regex("[A-Za-z0-9+/]{43}="))) { "Use padded Base64 SHA-256 SPKI pins" }
-                    val bytes = try { Base64.decode(pin, Base64.NO_WRAP) } catch (_: IllegalArgumentException) { null }
-                    require(bytes?.size == 32) { "Use Base64 SHA-256 SPKI pins (32 bytes each)" }
-                }
                 com.google.gson.JsonArray().apply { parts.forEach { add(it) } }
             }
             Kind.TEXT -> {
@@ -270,62 +237,43 @@ object ProtocolOptions {
         return result
     }
 
-    fun validate(bean: AbstractBean, root: JsonObject) {
-        validateQuicECH(bean, root)
-        // Only validate fields owned by this editor; leave arbitrary custom configuration to strict core validation.
-        for (field in fields(bean)) get(root, field.path)?.let {
-            value(field, text(root, field))
-        }
-        val min = get(root, "tls.min_version")?.asString
-        val max = get(root, "tls.max_version")?.asString
-        require(min == null || max == null || min <= max) { "tls.min_version must not exceed tls.max_version" }
-        val certificate = get(root, "tls.certificate")
-        val nativeCertificate = when (bean) {
-            is AnyTLSBean -> bean.certificates
-            is StandardV2RayBean -> bean.certificates
-            is HysteriaBean -> bean.caText
-            is TuicBean -> bean.caText
-            else -> ""
-        }
-        require(get(root, "tls.certificate_public_key_sha256") == null ||
-            (certificate == null && get(root, "tls.certificate_path") == null && nativeCertificate.isNullOrBlank())) {
-            "TLS public-key pins conflict with custom CA certificates"
-        }
-        val reality = get(root, "tls.reality.enabled")?.asBoolean == true ||
-            (bean is StandardV2RayBean && !bean.realityPubKey.isNullOrBlank())
-        val ech = get(root, "tls.ech.enabled")?.asBoolean == true ||
-            (bean is StandardV2RayBean && bean.enableECH == true) || (bean is AnyTLSBean && !bean.echConfig.isNullOrBlank())
-        require(!(reality && ech)) { "Reality conflicts with ECH in the current core" }
-        require(!reality || get(root, "tls.disable_sni")?.asBoolean != true) { "Reality requires SNI" }
-        require(!reality || get(root, "tls.certificate_public_key_sha256") == null) { "Reality uses its own public key verification, not certificate pins" }
-        require(!reality || max == null || max == "1.3") { "Reality requires TLS 1.3" }
-        if (bean is TuicBean && get(root, "udp_over_stream")?.asBoolean == true) {
-            val relay = get(root, "udp_relay_mode")?.asString ?: if (bean.udpRelayMode == "quic") "quic" else ""
-            require(relay.isEmpty()) { "udp_over_stream conflicts with udp_relay_mode; select native relay first" }
-        }
-        if (bean is HysteriaBean && bean.protocolVersion == 2) {
-            val maxHop = get(root, "hop_interval_max")?.asString
-            val minHop = get(root, "hop_interval")?.asString ?: "${bean.hopInterval}s"
-            val minNanos = durationNanos(minHop)
-            val maxNanos = maxHop?.let { durationNanos(it) } ?: BigDecimal.ZERO
-            require(maxNanos.signum() == 0 || minNanos.signum() > 0 && maxNanos >= minNanos) { "hop_interval_max must not be shorter than hop_interval" }
-            if (bean.serverPorts.any { it == ',' || it == '-' || it == ':' }) {
-                require(minNanos.signum() == 0 || minNanos >= BigDecimal("5000000000")) { "Port-hop interval must be at least 5s" }
+    internal fun validationOutbound(bean: AbstractBean, stored: JsonObject): JsonObject? {
+        val candidate = bean.clone().apply { protocolOptionsJson = stored.toString() }
+        val outbound = when (candidate) {
+            is AnyTLSBean -> moe.matsuri.nb4a.proxy.anytls.buildSingBoxOutboundAnyTLSBean(candidate)
+            is ShadowTLSBean -> moe.matsuri.nb4a.SingBoxOptions.Outbound_ShadowTLSOptions().apply {
+                type = "shadowtls"
+                tls = io.nekohasekai.sagernet.fmt.v2ray.buildSingBoxOutboundTLS(candidate, false)
             }
-            val obfsType = get(root, "obfs.type")?.asString
-            if (obfsType != null) require(!bean.obfuscation.isNullOrBlank() || get(root, "obfs.password") != null) { "Obfuscation requires a password" }
-            val minPacket = get(root, "obfs.min_packet_size")?.asLong
-            val maxPacket = get(root, "obfs.max_packet_size")?.asLong
-            val effectiveMin = minPacket?.takeIf { it != 0L } ?: 512L
-            val effectiveMax = maxPacket?.takeIf { it != 0L } ?: 1200L
-            require(effectiveMin <= effectiveMax) { "Obfuscation packet size range is reversed" }
-            require((minPacket == null && maxPacket == null) || obfsType == "gecko") { "Packet size options require gecko obfuscation" }
+            is StandardV2RayBean -> io.nekohasekai.sagernet.fmt.v2ray.buildSingBoxOutboundStandardV2RayBean(candidate, false)
+            is HysteriaBean -> {
+                if (!isNativeQuic(candidate)) return null
+                io.nekohasekai.sagernet.fmt.hysteria.buildSingBoxOutboundHysteriaBean(candidate, false)
+            }
+            is TuicBean -> {
+                if (!isNativeQuic(candidate)) return null
+                io.nekohasekai.sagernet.fmt.tuic.buildSingBoxOutboundTuicBean(candidate, false)
+            }
+            else -> return null
         }
+        applyTo(outbound, candidate)
+        outbound._hack_custom_config = NodeJson.legacyOutbound(candidate)
+        return com.google.gson.Gson().toJsonTree(outbound.asMap()).asJsonObject
     }
 
+    fun supportsTlsCurvePreferences(bean: AbstractBean, stored: JsonObject): Boolean = try {
+        val tls = validationOutbound(bean, stored)?.getAsJsonObject("tls")
+        tls != null && get(tls, "enabled")?.asBoolean == true &&
+            get(tls, "engine")?.asString.orEmpty() in setOf("", "go") &&
+            get(tls, "utls.enabled")?.asBoolean != true &&
+            get(tls, "reality.enabled")?.asBoolean != true
+    } catch (_: Exception) { false }
+
     fun hasAdvancedOptions(bean: AbstractBean): Boolean =
-        !bean.protocolOptionsJson.isNullOrBlank() ||
-            try { fields(bean).any { get(parse(bean.customOutboundJson), it.path) != null } } catch (_: Exception) { false }
+        ConnectionSecurity.hasAdditionalOptions(bean) ||
+            (bean is StandardV2RayBean && ConnectionSecurity.mode(bean) == ConnectionSecurity.Mode.REALITY &&
+                (bean is HttpBean || bean is VMessBean && !bean.isVLESS)) ||
+            try { fields(bean).any { get(parse(NodeJson.legacyOutbound(bean)), it.path) != null } } catch (_: Exception) { false }
 
     fun applyTo(outbound: moe.matsuri.nb4a.SingBoxOptions.SingBoxOption, bean: AbstractBean, external: Boolean = false) {
         if (external) {
@@ -333,7 +281,6 @@ object ProtocolOptions {
             return
         }
         val root = parse(bean.protocolOptionsJson)
-        validateQuicECH(bean, root)
         // Built-in DTO -> protocol extension -> existing explicit user override (serializer).
         val values: Map<String, Any?> = com.google.gson.GsonBuilder()
             .setObjectToNumberStrategy(com.google.gson.ToNumberPolicy.LONG_OR_DOUBLE).create().fromJson(effectiveOptions(bean, root),

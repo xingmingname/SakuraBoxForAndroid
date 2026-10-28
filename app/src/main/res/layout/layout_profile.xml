@@ -60,6 +60,17 @@
                 </LinearLayout>
 
                 <androidx.appcompat.widget.AppCompatImageView
+                    android:id="@+id/node_json"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="top"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/json_manage"
+                    android:focusable="true"
+                    android:padding="12dp"
+                    app:srcCompat="@drawable/ic_node_json" />
+
+                <androidx.appcompat.widget.AppCompatImageView
                     android:id="@+id/edit"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"

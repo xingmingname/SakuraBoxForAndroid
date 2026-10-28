@@ -21,12 +21,4 @@
         android:id="@+id/action_move"
         android:title="@string/move"
         android:visible="false" />
-    <item
-        android:id="@+id/action_custom_outbound_json"
-        android:title="@string/custom_outbound_json"
-        android:visible="false" />
-    <item
-        android:id="@+id/action_custom_config_json"
-        android:title="@string/custom_config_json"
-        android:visible="false" />
 </menu>

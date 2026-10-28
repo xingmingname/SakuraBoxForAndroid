@@ -23,6 +23,8 @@ public abstract class AbstractBean extends Serializable {
 
     public String customOutboundJson;
     public String customConfigJson;
+    public Integer jsonMode;
+    public Integer jsonLegacyMask;
     // Versioned protocol editor data, separate from user overrides preserved by subscription updates.
     public String protocolOptionsJson;
 
@@ -76,6 +78,8 @@ public abstract class AbstractBean extends Serializable {
         if (customOutboundJson == null) customOutboundJson = "";
         if (customConfigJson == null) customConfigJson = "";
         if (protocolOptionsJson == null) protocolOptionsJson = "";
+        if (jsonMode == null) jsonMode = 0;
+        if (jsonLegacyMask == null) jsonLegacyMask = 0;
     }
 
 
@@ -85,13 +89,15 @@ public abstract class AbstractBean extends Serializable {
     public void serializeToBuffer(@NonNull ByteBufferOutput output) {
         serialize(output);
 
-        output.writeInt(2);
+        output.writeInt(3);
         if (!serializeWithoutName) {
             output.writeString(name);
         }
         output.writeString(customOutboundJson);
         output.writeString(customConfigJson);
         output.writeString(protocolOptionsJson);
+        output.writeInt(jsonMode == null ? 0 : jsonMode);
+        output.writeInt(jsonLegacyMask == null ? 0 : jsonLegacyMask);
     }
 
     @Override
@@ -104,6 +110,10 @@ public abstract class AbstractBean extends Serializable {
         customOutboundJson = input.readString();
         customConfigJson = input.readString();
         protocolOptionsJson = extraVersion >= 2 ? input.readString() : "";
+        jsonMode = extraVersion >= 3 ? input.readInt() :
+                (JavaUtil.isNotBlank(customOutboundJson) || JavaUtil.isNotBlank(customConfigJson) ? -1 : 0);
+        jsonLegacyMask = extraVersion >= 3 ? input.readInt() :
+                ((JavaUtil.isNotBlank(customOutboundJson) ? 1 : 0) | (JavaUtil.isNotBlank(customConfigJson) ? 2 : 0));
     }
 
     public void serialize(ByteBufferOutput output) {

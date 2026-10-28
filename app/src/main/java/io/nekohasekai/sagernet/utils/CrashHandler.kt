@@ -11,6 +11,7 @@ import io.nekohasekai.sagernet.database.preference.PublicDatabase
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ui.BlankActivity
+import moe.matsuri.nb4a.utils.LogRedactor
 import java.io.BufferedReader
 import java.io.IOException
 import java.io.InputStreamReader
@@ -25,7 +26,7 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
         // note: libc / go panic is in android log
 
         try {
-            Log.e(thread.toString(), throwable.stackTraceToString())
+            Log.e(thread.toString(), LogRedactor.redact(throwable.stackTraceToString()))
         } catch (e: Exception) {
         }
 
@@ -57,7 +58,7 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
             format += "\n\nCaused by: " + formatThrowable(cause)
         }
 
-        return format
+        return LogRedactor.redact(format)
     }
 
     fun buildReportHeader(): String {

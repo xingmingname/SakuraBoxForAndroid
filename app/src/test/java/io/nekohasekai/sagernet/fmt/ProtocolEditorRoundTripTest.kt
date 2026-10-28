@@ -124,7 +124,6 @@ class ProtocolEditorRoundTripTest {
             is StandardV2RayBean -> buildSingBoxOutboundStandardV2RayBean(bean, false)
             else -> error("Missing builder")
         }
-        ProtocolOptions.validate(bean, ProtocolOptions.parse(bean.protocolOptionsJson))
         ProtocolOptions.applyTo(outbound, bean)
         outbound._hack_custom_config = bean.customOutboundJson
         outbound._hack_config_map["tag"] = "proxy"

@@ -1,0 +1,17 @@
+import org.gradle.api.cache.Cleanup
+import org.gradle.util.GradleVersion
+
+if (GradleVersion.current() != GradleVersion.version('8.10.2')) {
+    throw new GradleException('SakuraBox cache protection is verified for Gradle 8.10.2; review it before changing Gradle versions.')
+}
+
+beforeSettings { settings ->
+    settings.caches.cleanup.set(Cleanup.DISABLED)
+    settings.caches.cleanup.finalizeValue()
+}
+
+settingsEvaluated { settings ->
+    if (settings.caches.cleanup.get() != Cleanup.DISABLED) {
+        throw new GradleException('SakuraBox Gradle User Home cleanup protection is not active.')
+    }
+}

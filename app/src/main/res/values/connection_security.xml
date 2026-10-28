@@ -1,0 +1,18 @@
+<resources>
+    <string name="connection_security">Connection security</string>
+    <string name="connection_security_none">None (no TLS layer)</string>
+    <string name="connection_reality_public_key">REALITY public key</string>
+    <string name="connection_reality_short_id">REALITY Short ID</string>
+    <string name="connection_reality_public_key_help">Required: the server’s 32-byte public key in unpadded base64url format. This is not a certificate pin.</string>
+    <string name="connection_reality_short_id_help">Use the server’s Short ID: an even number of hexadecimal characters, up to 16. Empty is valid only when allowed by the server.</string>
+    <string-array name="connection_security_entries">
+        <item>@string/connection_security_none</item>
+        <item>TLS</item>
+        <item>REALITY</item>
+    </string-array>
+    <string-array name="connection_security_values">
+        <item>none</item>
+        <item>tls</item>
+        <item>reality</item>
+    </string-array>
+</resources>

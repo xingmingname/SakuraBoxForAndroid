@@ -267,9 +267,11 @@ fun getFirstPort(portStr: String): Int {
     return portStr.substringBefore(":").substringBefore(",").toIntOrNull() ?: 443
 }
 
+fun HysteriaBean.requiresRootBypass(): Boolean =
+    protocolVersion == 1 && protocol == HysteriaBean.PROTOCOL_FAKETCP
+
 fun HysteriaBean.canUseSingBox(): Boolean {
-    if (protocol != HysteriaBean.PROTOCOL_UDP) return false
-    return true
+    return protocolVersion == 2 || protocol == HysteriaBean.PROTOCOL_UDP
 }
 
 fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean, globalAllowInsecure: Boolean = DataStore.globalAllowInsecure): SingBoxOptions.SingBoxOption {

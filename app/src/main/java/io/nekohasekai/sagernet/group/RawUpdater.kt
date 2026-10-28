@@ -172,6 +172,8 @@ object RawUpdater : GroupUpdater() {
                 // 更新订阅，保留自定义覆写设置
                 bean.customOutboundJson = existsBean.customOutboundJson
                 bean.customConfigJson = existsBean.customConfigJson
+                bean.jsonMode = existsBean.jsonMode
+                bean.jsonLegacyMask = existsBean.jsonLegacyMask
                 when {
                     existsBean != bean -> {
                         changed++
@@ -208,7 +210,12 @@ object RawUpdater : GroupUpdater() {
             userOrder++
         }
 
-        SagerDatabase.proxyDao.updateProxy(toUpdate).also {
+        SagerDatabase.instance.runInTransaction(java.util.concurrent.Callable {
+            toUpdate.forEach { profile -> SagerDatabase.proxyDao.getById(profile.id)?.let { current ->
+                io.nekohasekai.sagernet.fmt.NodeJson.copyState(current.requireBean(), profile.requireBean())
+            } }
+            SagerDatabase.proxyDao.updateProxy(toUpdate)
+        }).also {
             Logs.d("Updated profiles: $it")
         }
 
