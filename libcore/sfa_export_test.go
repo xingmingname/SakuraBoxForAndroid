@@ -155,6 +155,25 @@ func TestSFAOfficialExportProductionProtocolFixtures(t *testing.T) {
 				t.Fatal(err)
 			}
 			out, err := ExportPortableConfig(string(input))
+			var config struct {
+				Outbounds []struct {
+					Type string `json:"type"`
+				} `json:"outbounds"`
+			}
+			if decodeErr := json.Unmarshal(input, &config); decodeErr != nil {
+				t.Fatal(decodeErr)
+			}
+			for _, outbound := range config.Outbounds {
+				if outbound.Type == "sudoku" {
+					if err == nil || out != "" || !strings.Contains(err.Error(), "official sing-box") {
+						t.Fatalf("Sudoku must be rejected by official export: %v", err)
+					}
+					if checkErr := CheckConfig(string(input)); checkErr != nil {
+						t.Fatal(checkErr)
+					}
+					return
+				}
+			}
 			if err != nil {
 				t.Fatal(err)
 			}

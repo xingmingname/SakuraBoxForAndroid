@@ -10,7 +10,7 @@ import (
 	"github.com/matsuridayo/libneko/neko_log"
 )
 
-const logSecretKeys = "client_key_path|client-key-path|client_key|client-key|password|passwd|uuid|private_key|private-key|private_key_passphrase|private-key-passphrase|pre_shared_key|pre-shared-key|token|secret|authorization|cookie|username|auth|auth_str|auth-str"
+const logSecretKeys = "client_key_path|client-key-path|client_key|client-key|password|passwd|uuid|private_key|private-key|private_key_passphrase|private-key-passphrase|pre_shared_key|pre-shared-key|token|secret|authorization|cookie|username|auth|auth_str|auth-str|key"
 
 var (
 	secretField     = regexp.MustCompile(`(?i)(?:"(?:` + logSecretKeys + `)"|\b(?:` + logSecretKeys + `)\b)\s*[:=]\s*`)

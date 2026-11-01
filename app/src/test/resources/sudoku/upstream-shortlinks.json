@@ -1,0 +1,164 @@
+{
+  "source": "https://github.com/SUDOKU-ASCII/sudoku/blob/56ce6f1aeea18aa69b9bc1d57557ed312b59e5f5/internal/config/shortlink.go",
+  "generator": "tools/sudoku-shortlink-oracle_test.go.txt",
+  "cases": [
+    {
+      "link": "sudoku://eyJuIjoi6aaZ5rivIOaXpeacrCArIC8_IyUg8J-YgCIsImgiOiIyMDAxOmRiODo6MSIsInAiOjQ0MywiayI6InN5bnRoZXRpYy1rZXkiLCJhIjoiYXNjaWkiLCJlIjoiYWVzLTEyOC1nY20iLCJtIjoxMDIzMywieCI6dHJ1ZSwidHMiOlsieHB4dnZwdnYiLCJ2eHB2eHZ2cCJdLCJobSI6ImF1dG8iLCJodCI6dHJ1ZSwiaGgiOiJjZG4uZXhhbXBsZS5jb20iLCJoeCI6Im9uIiwiaHkiOiJyb290XzAxIn0",
+      "config": {
+        "name": "香港 日本 + /?#% 😀",
+        "server_address": "[2001:db8::1]:443",
+        "key": "synthetic-key",
+        "aead": "aes-128-gcm",
+        "padding_min": 5,
+        "padding_max": 15,
+        "ascii": "prefer_ascii",
+        "custom_table": "",
+        "custom_tables": [
+          "xpxvvpvv",
+          "vxpvxvvp"
+        ],
+        "enable_pure_downlink": false,
+        "httpmask": {
+          "disable": false,
+          "mode": "auto",
+          "tls": true,
+          "host": "cdn.example.com",
+          "path_root": "root_01",
+          "multiplex": "on"
+        }
+      }
+    },
+    {
+      "link": "sudoku://eyJoIjoiZWRnZS5leGFtcGxlLmNvbSIsInAiOjg0NDMsImsiOiJzeW50aGV0aWMta2V5IiwiYSI6InVwX2FzY2lpX2Rvd25fZW50cm9weSIsImUiOiJjaGFjaGEyMC1wb2x5MTMwNSIsIm0iOjEwODEsInQiOiJ4cHh2dnB2diIsImhkIjp0cnVlLCJoeCI6Im9uIn0",
+      "config": {
+        "server_address": "edge.example.com:8443",
+        "key": "synthetic-key",
+        "aead": "chacha20-poly1305",
+        "padding_min": 5,
+        "padding_max": 15,
+        "ascii": "up_ascii_down_entropy",
+        "custom_table": "xpxvvpvv",
+        "custom_tables": null,
+        "enable_pure_downlink": true,
+        "httpmask": {
+          "disable": true,
+          "mode": "legacy",
+          "tls": false,
+          "host": "",
+          "path_root": "",
+          "multiplex": "on"
+        }
+      }
+    },
+    {
+      "link": "sudoku://eyJoIjoiZXhhbXBsZS5jb20iLCJwIjo0NDMsImsiOiJzeW50aGV0aWMta2V5IiwiYSI6ImVudHJvcHkiLCJlIjoiY2hhY2hhMjAtcG9seTEzMDUiLCJtIjoxMDgwLCJoeCI6ImF1dG8ifQ",
+      "config": {
+        "server_address": "example.com:443",
+        "key": "synthetic-key",
+        "aead": "chacha20-poly1305",
+        "padding_min": 5,
+        "padding_max": 15,
+        "ascii": "prefer_entropy",
+        "custom_table": "",
+        "custom_tables": null,
+        "enable_pure_downlink": true,
+        "httpmask": {
+          "disable": false,
+          "mode": "legacy",
+          "tls": false,
+          "host": "",
+          "path_root": "",
+          "multiplex": "auto"
+        }
+      }
+    },
+    {
+      "link": "sudoku://eyJoIjoiZXhhbXBsZS5jb20iLCJwIjo0NDMsImsiOiJzeW50aGV0aWMta2V5IiwiYSI6ImVudHJvcHkiLCJlIjoiY2hhY2hhMjAtcG9seTEzMDUiLCJtIjoxMDgwLCJobSI6InN0cmVhbSIsImh4IjoiYXV0byJ9",
+      "config": {
+        "server_address": "example.com:443",
+        "key": "synthetic-key",
+        "aead": "chacha20-poly1305",
+        "padding_min": 5,
+        "padding_max": 15,
+        "ascii": "prefer_entropy",
+        "custom_table": "",
+        "custom_tables": null,
+        "enable_pure_downlink": true,
+        "httpmask": {
+          "disable": false,
+          "mode": "stream",
+          "tls": false,
+          "host": "",
+          "path_root": "",
+          "multiplex": "auto"
+        }
+      }
+    },
+    {
+      "link": "sudoku://eyJoIjoiZXhhbXBsZS5jb20iLCJwIjo0NDMsImsiOiJzeW50aGV0aWMta2V5IiwiYSI6ImVudHJvcHkiLCJlIjoiY2hhY2hhMjAtcG9seTEzMDUiLCJtIjoxMDgwLCJobSI6InBvbGwiLCJoeCI6ImF1dG8ifQ",
+      "config": {
+        "server_address": "example.com:443",
+        "key": "synthetic-key",
+        "aead": "chacha20-poly1305",
+        "padding_min": 5,
+        "padding_max": 15,
+        "ascii": "prefer_entropy",
+        "custom_table": "",
+        "custom_tables": null,
+        "enable_pure_downlink": true,
+        "httpmask": {
+          "disable": false,
+          "mode": "poll",
+          "tls": false,
+          "host": "",
+          "path_root": "",
+          "multiplex": "auto"
+        }
+      }
+    },
+    {
+      "link": "sudoku://eyJoIjoiZXhhbXBsZS5jb20iLCJwIjo0NDMsImsiOiJzeW50aGV0aWMta2V5IiwiYSI6ImVudHJvcHkiLCJlIjoiY2hhY2hhMjAtcG9seTEzMDUiLCJtIjoxMDgwLCJobSI6ImF1dG8iLCJoeCI6ImF1dG8ifQ",
+      "config": {
+        "server_address": "example.com:443",
+        "key": "synthetic-key",
+        "aead": "chacha20-poly1305",
+        "padding_min": 5,
+        "padding_max": 15,
+        "ascii": "prefer_entropy",
+        "custom_table": "",
+        "custom_tables": null,
+        "enable_pure_downlink": true,
+        "httpmask": {
+          "disable": false,
+          "mode": "auto",
+          "tls": false,
+          "host": "",
+          "path_root": "",
+          "multiplex": "auto"
+        }
+      }
+    },
+    {
+      "link": "sudoku://eyJoIjoiZXhhbXBsZS5jb20iLCJwIjo0NDMsImsiOiJzeW50aGV0aWMta2V5IiwiYSI6ImVudHJvcHkiLCJlIjoiY2hhY2hhMjAtcG9seTEzMDUiLCJtIjoxMDgwLCJobSI6IndzIiwiaHgiOiJhdXRvIn0",
+      "config": {
+        "server_address": "example.com:443",
+        "key": "synthetic-key",
+        "aead": "chacha20-poly1305",
+        "padding_min": 5,
+        "padding_max": 15,
+        "ascii": "prefer_entropy",
+        "custom_table": "",
+        "custom_tables": null,
+        "enable_pure_downlink": true,
+        "httpmask": {
+          "disable": false,
+          "mode": "ws",
+          "tls": false,
+          "host": "",
+          "path_root": "",
+          "multiplex": "auto"
+        }
+      }
+    }
+  ]
+}

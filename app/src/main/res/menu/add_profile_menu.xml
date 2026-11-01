@@ -20,6 +20,9 @@
                 android:id="@+id/action_import_clipboard"
                 android:title="@string/action_import" />
             <item
+                android:id="@+id/action_import_links"
+                android:title="@string/import_links" />
+            <item
                 android:id="@+id/action_import_file"
                 android:title="@string/action_import_file" />
             <item android:title="@string/add_profile_methods_manual_settings">
@@ -60,6 +63,9 @@
                     <item
                         android:id="@+id/action_new_shadowtls"
                         android:title="@string/action_shadowtls" />
+                    <item
+                        android:id="@+id/action_new_sudoku"
+                        android:title="@string/action_sudoku" />
                     <item
                         android:id="@+id/action_new_anytls"
                         android:title="@string/action_anytls" />

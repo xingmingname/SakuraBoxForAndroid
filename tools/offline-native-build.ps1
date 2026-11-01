@@ -1,4 +1,4 @@
-param([string]$GoRoot, [string]$RunDirectory, [string]$OutputName = 'libcore-sing-box-1.14.3.aar', [string]$SharedCache, [string]$JavaHome=$env:JAVA_HOME, [string]$AndroidHome=$env:ANDROID_HOME, [string]$ModuleCache=$env:GOMODCACHE,[switch]$ColdCache)
+param([string]$GoRoot, [string]$RunDirectory, [string]$OutputName = 'libcore-sing-box-1.14.3-sakura-sudoku.aar', [string]$SharedCache, [string]$JavaHome=$env:JAVA_HOME, [string]$AndroidHome=$env:ANDROID_HOME, [string]$ModuleCache=$env:GOMODCACHE,[switch]$ColdCache)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 . (Join-Path $PSScriptRoot 'build-cache.ps1')

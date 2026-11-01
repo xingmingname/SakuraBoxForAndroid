@@ -785,6 +785,9 @@ object RawUpdater : GroupUpdater() {
 
         if (json is JSONObject) {
             when {
+                json.optString("type") == "sudoku" -> {
+                    io.nekohasekai.sagernet.fmt.sudoku.SudokuOptions.importOutbound(json.toString())?.let { return listOf(it) }
+                }
                 json.optString("type") == "anytls" -> {
                     moe.matsuri.nb4a.proxy.anytls.importAnyTLSOutbound(json.toString())?.let { return listOf(it) }
                     return listOf(ConfigBean().applyDefaultValues().apply { type = 1; config = json.toStringPretty() })
@@ -828,7 +831,8 @@ object RawUpdater : GroupUpdater() {
                             }
                         }.map {
                             ImportLimits.checkCancelled()
-                            moe.matsuri.nb4a.proxy.anytls.importAnyTLSOutbound(it.toString()) ?: ConfigBean().apply {
+                            (if (it.optString("type") == "sudoku") io.nekohasekai.sagernet.fmt.sudoku.SudokuOptions.importOutbound(it.toString()) else null)
+                                ?: moe.matsuri.nb4a.proxy.anytls.importAnyTLSOutbound(it.toString()) ?: ConfigBean().apply {
                                 applyDefaultValues()
                                 type = 1
                                 config = it.toStringPretty()

@@ -411,6 +411,9 @@ fun buildConfig(
                         is SSHBean ->
                             buildSingBoxOutboundSSHBean(bean)
 
+                        is io.nekohasekai.sagernet.fmt.sudoku.SudokuBean ->
+                            io.nekohasekai.sagernet.fmt.sudoku.SudokuOptions.buildOutbound(bean)
+
                         is AnyTLSBean ->
                             buildSingBoxOutboundAnyTLSBean(bean)
 

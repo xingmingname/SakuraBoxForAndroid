@@ -10,6 +10,7 @@ import io.nekohasekai.sagernet.fmt.naive.parseNaive
 import io.nekohasekai.sagernet.fmt.parseUniversal
 import io.nekohasekai.sagernet.fmt.shadowsocks.parseShadowsocks
 import io.nekohasekai.sagernet.fmt.socks.parseSOCKS
+import io.nekohasekai.sagernet.fmt.sudoku.SudokuShareLink
 import io.nekohasekai.sagernet.fmt.trojan.parseTrojan
 import io.nekohasekai.sagernet.fmt.tuic.parseTuic
 import io.nekohasekai.sagernet.fmt.trojan_go.parseTrojanGo
@@ -110,7 +111,7 @@ class SubscriptionFoundException(val link: String) : RuntimeException()
 
 suspend fun parseProxies(text: String): List<AbstractBean> {
     ImportLimits.checkText(text)
-    val links = text.lineSequence().flatMap { it.trim().splitToSequence(' ') }.filter { it.isNotEmpty() }
+    val links = text.lineSequence().flatMap { it.trim().splitToSequence(' ', '\t') }.filter { it.isNotEmpty() }
     val linksByLine = text.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }
     var candidates = 0
 
@@ -129,6 +130,14 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
             }.onFailure {
                 if (it is ImportLimits.InputLimitException || it is InterruptedIOException || it is CancellationException) throw it
                 Logs.w(it)
+            }
+        } else if (startsWith("sudoku://", ignoreCase = true)) {
+            runCatching {
+                entities.add(SudokuShareLink.parse(this))
+            }.onFailure {
+                if (it is ImportLimits.InputLimitException || it is InterruptedIOException || it is CancellationException) throw it
+                // Do not log the link or decoded key material.
+                Logs.w("Invalid or unsupported Sudoku share link")
             }
         } else if (startsWith("socks://") || startsWith("socks4://") || startsWith("socks4a://") || startsWith(
                 "socks5://"

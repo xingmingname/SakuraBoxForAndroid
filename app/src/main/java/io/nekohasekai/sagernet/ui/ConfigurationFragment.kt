@@ -59,6 +59,7 @@ import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.databinding.LayoutProfileListBinding
 import io.nekohasekai.sagernet.databinding.LayoutProgressListBinding
+import io.nekohasekai.sagernet.databinding.LayoutImportLinksBinding
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.toUniversalLink
 import io.nekohasekai.sagernet.group.GroupUpdater
@@ -91,6 +92,7 @@ import io.nekohasekai.sagernet.ui.profile.NaiveSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.SSHSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.ShadowsocksSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.SocksSettingsActivity
+import io.nekohasekai.sagernet.ui.profile.SudokuSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.TrojanGoSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.TrojanSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.TuicSettingsActivity
@@ -345,6 +347,20 @@ class ConfigurationFragment @JvmOverloads constructor(
 
     }
 
+    private fun importLinkText(text: String, emptyMessage: Int) = runOnDefaultDispatcher {
+        try {
+            val proxies = RawUpdater.parseRaw(text)
+            if (proxies.isNullOrEmpty()) onMainDispatcher {
+                snackbar(getString(emptyMessage)).show()
+            } else import(proxies)
+        } catch (e: SubscriptionFoundException) {
+            (requireActivity() as MainActivity).importSubscription(e.link.toUri())
+        } catch (e: Exception) {
+            Logs.w(e)
+            onMainDispatcher { snackbar(e.readableMessage).show() }
+        }
+    }
+
     override fun onMenuItemClick(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.action_scan_qr_code -> {
@@ -355,22 +371,16 @@ class ConfigurationFragment @JvmOverloads constructor(
                 val text = SagerNet.getClipboardText()
                 if (text.isBlank()) {
                     snackbar(getString(R.string.clipboard_empty)).show()
-                } else runOnDefaultDispatcher {
-                    try {
-                        val proxies = RawUpdater.parseRaw(text)
-                        if (proxies.isNullOrEmpty()) onMainDispatcher {
-                            snackbar(getString(R.string.no_proxies_found_in_clipboard)).show()
-                        } else import(proxies)
-                    } catch (e: SubscriptionFoundException) {
-                        (requireActivity() as MainActivity).importSubscription(e.link.toUri())
-                    } catch (e: Exception) {
-                        Logs.w(e)
+                } else importLinkText(text, R.string.no_proxies_found_in_clipboard)
+            }
 
-                        onMainDispatcher {
-                            snackbar(e.readableMessage).show()
-                        }
-                    }
-                }
+            R.id.action_import_links -> {
+                val binding = LayoutImportLinksBinding.inflate(layoutInflater)
+                MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.import_links)
+                    .setView(binding.root).setNegativeButton(android.R.string.cancel, null)
+                    .setPositiveButton(android.R.string.ok) { _, _ ->
+                        importLinkText(binding.links.text?.toString().orEmpty(), R.string.import_links_empty)
+                    }.show()
             }
 
             R.id.action_import_file -> {
@@ -433,6 +443,10 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             R.id.action_new_shadowtls -> {
                 startActivity(Intent(requireActivity(), ShadowTLSSettingsActivity::class.java))
+            }
+
+            R.id.action_new_sudoku -> {
+                startActivity(Intent(requireActivity(), SudokuSettingsActivity::class.java))
             }
 
             R.id.action_new_anytls -> {

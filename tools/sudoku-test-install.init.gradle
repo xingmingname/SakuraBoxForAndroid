@@ -1,0 +1,13 @@
+// Opt-in local Debug installation for Sudoku instrumentation. No install or
+// upload is performed by this script; the normal application identity is kept
+// when this init script is not supplied.
+if (gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }) {
+    throw new GradleException('Sudoku instrumentation uses a separate Debug installation only.')
+}
+gradle.beforeProject { project ->
+    project.plugins.withId('com.android.application') {
+        project.extensions.getByName('androidComponents').finalizeDsl { android ->
+            android.defaultConfig.applicationId = 'app.sakurabox.client.sudoku'
+        }
+    }
+}

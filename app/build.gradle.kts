@@ -59,9 +59,9 @@ dependencies {
     androidTestCompileOnly(files("${android.sdkDirectory}/platforms/android-35/optional/android.test.runner.jar"))
 
     val localCoreAar = providers.gradleProperty("nekoCoreAar").orNull
-        ?: file("libs/libcore-sing-box-1.14.3-sakura-sr01.aar").absolutePath
+        ?: file("libs/libcore-sing-box-1.14.3-sakura-sudoku.aar").absolutePath
     require(file(localCoreAar).isFile) {
-        "Build the current SakuraBox libcore AAR first, or set -PnekoCoreAar to its verified path."
+        "Build the SakuraBox Sudoku libcore AAR first, or set -PnekoCoreAar to its verified path. See BUILDING.md."
     }
     implementation(fileTree("libs") { exclude("libcore*.aar") })
     implementation(files(localCoreAar))

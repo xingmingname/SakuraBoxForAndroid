@@ -110,18 +110,29 @@ object NodeJsonProfile {
         validateCore(generated)
     }
 
+    // Storage keeps the original document even when its decoded Sudoku tables
+    // exceed the runtime budget. Do not construct after this specific failure.
+    // All other decoder, reference and construction errors retain their behavior.
+    internal fun checkCoreForStorage(check: () -> Unit) {
+        try { check() } catch (e: Exception) {
+            if (!Regex("^outbounds\\[[0-9]+\\]: SUDOKU_TABLE_RESOURCE_LIMIT: ").containsMatchIn(e.message.orEmpty())) throw e
+        }
+    }
+
     fun validateCore(root: JsonObject) {
         val strict = root.deepCopy().apply { remove("_neko_sniff_override_rules") }
         try {
-            // Decode all original fields before removing listeners and file-writing services for construction.
-            Libcore.exportPortableConfig(strict.toString())
-            val construction = root.deepCopy().apply {
-                add("log", JsonObject().apply { addProperty("disabled", true) })
-                add("inbounds", JsonArray())
-                remove("experimental")
-                remove("services")
+            checkCoreForStorage {
+                // Decode all original fields before removing listeners and file-writing services for construction.
+                Libcore.checkConfig(strict.toString())
+                val construction = root.deepCopy().apply {
+                    add("log", JsonObject().apply { addProperty("disabled", true) })
+                    add("inbounds", JsonArray())
+                    remove("experimental")
+                    remove("services")
+                }
+                Libcore.newSingBoxInstance(construction.toString(), LocalResolverImpl).close()
             }
-            Libcore.newSingBoxInstance(construction.toString(), LocalResolverImpl).close()
         } catch (e: Exception) {
             val message = e.message.orEmpty()
             val kind = when {

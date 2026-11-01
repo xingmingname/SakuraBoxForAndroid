@@ -26,6 +26,17 @@ func ExportPortableConfig(config string) (string, error) {
 	if err = json.Unmarshal(data, &root); err != nil {
 		return "", err
 	}
+	var outbounds []struct {
+		Type string `json:"type"`
+	}
+	if err = json.Unmarshal(root["outbounds"], &outbounds); err != nil && len(root["outbounds"]) > 0 {
+		return "", err
+	}
+	for i, outbound := range outbounds {
+		if outbound.Type == "sudoku" {
+			return "", fmt.Errorf("outbounds[%d]: sudoku requires the SakuraBox experimental core or Sudoku fork; official sing-box Android does not support this protocol; use internal export", i)
+		}
+	}
 	if err = applyAndroidSFAExportDefaults(root); err != nil {
 		return "", err
 	}

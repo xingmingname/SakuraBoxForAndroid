@@ -1,7 +1,24 @@
 # SakuraBox 源码构建
 
-正式候选版本：应用 `1.0.2`（versionCode 240），核心 `1.14.3-sakura`。
-发布标题约定 `Sakurabox-1.0.2`，tag `v1.0.2`。该 Tag 仅为预定名称 本轮未创建 Tag 本文不是已发布声明。
+当前测试候选：应用 `1.0.3-beta.1`（versionCode 245），核心 `1.14.3-sakura`。
+测试发布预定 Tag 为 `v1.0.3-beta.1`，仅使用 Pre-release 和现有 Debug 安装包，不替换正式版 `v1.0.2`。本文不代表已发布。
+
+## Sudoku 客户端配置与核心选择
+
+Sudoku outbound 随固定的 sing-box v1.14.3 和既有 SakuraBox 补丁构建，不替换整个核心。
+来源、固定提交和本地补丁见 `libcore/sudoku/UPSTREAM.json`、`LICENSE` 和 `RESOURCE_BUDGET.md`。
+原生页面保留全部 52 项设置，支持共享/split-key、HTTPMask、AEAD/ASCII、会话多路复用及通用拨号/DNS。
+物理表限制为每节点 32（默认）、64、128、256、512 或无限制（JSON 数值 0）。
+配置保存保留省略、0、false、空值和未知字段；运行预算在核心构造前检查，不增加普通保存拦截。
+
+`sudoku://` 使用上游 Base64 JSON 短字段格式；无法无损表达的高级配置和 JSON 接管节点沿用 SN 分享。
+内部 JSON 支持 Sudoku，面向官方 sing-box 的导出仍拒绝该扩展协议。
+已知限制：legacy `http_mask_strategy=post` 沿用固定 Fork 的行为，没有独立模式；嵌套 HTTPMask 整体优先于 legacy。
+
+Android 默认只引用 `app/libs/libcore-sing-box-1.14.3-sakura-sudoku.aar`，也可使用 `-PnekoCoreAar=<已验证的本地 AAR>`。
+核心构建脚本和离线脚本使用同一个输出名。旧 sr01 AAR 保留，不自动改名、复用或覆盖；
+需要重新构建时使用新的独立输出目录，并核对 source-sha256、Java bindings、四 ABI JNI 与 16 KiB 对齐。
+源码仓库不提交 AAR、SO、APK、密钥、缓存或实验报告。
 
 ## 工具和依赖
 
@@ -33,7 +50,7 @@ bash ./run lib core
 ./gradlew testOssDebugUnitTest assembleOssDebug processOssReleaseMainManifest
 ```
 
-核心 AAR 由源码新生成至 `.build-deps/outputs/` 和 `app/libs/libcore-sing-box-1.14.3-sakura-sr01.aar`。
+核心 AAR 由源码新生成至 `.build-deps/outputs/` 和 `app/libs/libcore-sing-box-1.14.3-sakura-sudoku.aar`。
 缺少当前 AAR 时 Android 配置明确失败，不自动挑选旧版本。
 已有 AAR 不会被原生脚本覆盖；重建请设置新的 `OUTPUT_AAR` 和 `APP_AAR`，或使用下面独立输出流程及 `-PnekoCoreAar`。
 
@@ -49,8 +66,8 @@ PowerShell 工具接受明确环境参数，没有开发者专用 SDK、缓存�
 离线 Android 入口要求先保护所选 Gradle 8.10.2 User Home；选择已有下载依赖的专用目录，通过 `GRADLE_USER_HOME` 或 `-GradleUserHome` 指定，运行 `./tools/install-gradle-cache-policy.ps1 -GradleUserHome $env:GRADLE_USER_HOME` 安装一次经过审查的禁用自动回收策略。没有匹配策略时入口会停止，不会把 `--offline` 或 `--no-daemon` 当作缓存保护。Go工具默认跨任务复用缓存，也可传入已有可信 `-SharedCache`；仅显式 `-ColdCache` 创建任务专属冷缓存。分类保留和人工清理规则见 [tools/BUILD_CACHE.md](tools/BUILD_CACHE.md)。
 
 ```powershell
-./tools/offline-native-build.ps1 -GoRoot $env:GOROOT -RunDirectory .local-builds/native-check -OutputName libcore-sing-box-1.14.3-sakura-sr01.aar -SharedCache $env:GOCACHE -ModuleCache $env:GOMODCACHE
-./tools/offline-android-build.ps1 -CoreAar .local-builds/native-check/libcore-sing-box-1.14.3-sakura-sr01.aar -RunDirectory .local-builds/android-check -Tasks testOssDebugUnitTest,assembleOssDebug,processOssReleaseMainManifest
+./tools/offline-native-build.ps1 -GoRoot $env:GOROOT -RunDirectory .local-builds/native-check -OutputName libcore-sing-box-1.14.3-sakura-sudoku.aar -SharedCache $env:GOCACHE -ModuleCache $env:GOMODCACHE
+./tools/offline-android-build.ps1 -CoreAar .local-builds/native-check/libcore-sing-box-1.14.3-sakura-sudoku.aar -RunDirectory .local-builds/android-check -Tasks testOssDebugUnitTest,assembleOssDebug,processOssReleaseMainManifest
 ./tools/offline-go-tests.ps1 -GoRoot $env:GOROOT -RunDirectory .local-builds/go-check -SharedCache $env:GOCACHE -ModuleCache $env:GOMODCACHE -ConfigFixtures .local-builds/android-check/config-fixtures
 python tools/check-shortcut-security.py
 ```

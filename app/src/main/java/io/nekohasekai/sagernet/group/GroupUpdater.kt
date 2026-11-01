@@ -99,6 +99,8 @@ abstract class GroupUpdater {
 
         with(bean) {
             when (this) {
+                is io.nekohasekai.sagernet.fmt.sudoku.SudokuBean ->
+                    io.nekohasekai.sagernet.fmt.sudoku.SudokuOptions.retainHostBeforeAddressRewrite(this)
                 is HttpBean -> {
                     if (isTLS() && sni.isBlank()) sni = bean.serverAddress
                 }

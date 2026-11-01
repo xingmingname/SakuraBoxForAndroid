@@ -50,6 +50,10 @@ class V2RayQuicSecurityTest {
             if(t=="quic")assertEquals("quic",(out["transport"] as Map<*,*>)["type"])
             assertArrayEquals(before,KryoConverters.serialize(node))
             assertEquals(mode=="none",out["tls"]==null)
+            System.getenv("NEKO_CONFIG_FIXTURES")?.let { directory ->
+                val fixtures = File(directory, "aud008").apply { mkdirs() }
+                File(fixtures, "aud008-$p-$t-$mode.json").writeText(Gson().toJson(config))
+            }
         }
     }
 

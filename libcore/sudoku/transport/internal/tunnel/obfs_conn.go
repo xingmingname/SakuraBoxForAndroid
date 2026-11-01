@@ -1,0 +1,174 @@
+/*
+Copyright (C) 2026 by saba <contact me via issue>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+In addition, no derivative work may use the name or imply association
+with this application without prior consent.
+*/
+package tunnel
+
+import (
+	"io"
+	"net"
+
+	"libcore/sudoku/transport/connutil"
+	"libcore/sudoku/transport/internal/config"
+	"libcore/sudoku/transport/obfs/sudoku"
+)
+
+type obfsUplinkMode byte
+
+const (
+	obfsUplinkPure obfsUplinkMode = iota
+	obfsUplinkPacked
+)
+
+type recordingConn interface {
+	net.Conn
+	StopRecording()
+	GetBufferedAndRecorded() []byte
+}
+
+type obfsMetaConn interface {
+	SudokuUplinkPacked() bool
+}
+
+type connWithObfsMeta struct {
+	net.Conn
+	uplinkPacked bool
+}
+
+func (c *connWithObfsMeta) WriteTo(w io.Writer) (int64, error) {
+	if c == nil || c.Conn == nil {
+		return 0, net.ErrClosed
+	}
+	return connutil.Copy(w, c.Conn)
+}
+
+func (c *connWithObfsMeta) WriteBuffers(buffers net.Buffers) (int64, error) {
+	if c == nil || c.Conn == nil {
+		return 0, net.ErrClosed
+	}
+	return connutil.WriteBuffers(c.Conn, buffers)
+}
+
+func (c *connWithObfsMeta) SudokuUplinkPacked() bool {
+	if c == nil {
+		return false
+	}
+	return c.uplinkPacked
+}
+
+func (c *connWithObfsMeta) CloseWrite() error {
+	if c == nil {
+		return nil
+	}
+	return connutil.TryCloseWrite(c.Conn)
+}
+
+func (c *connWithObfsMeta) CloseRead() error {
+	if c == nil {
+		return nil
+	}
+	return connutil.TryCloseRead(c.Conn)
+}
+
+func wrapConnWithObfsMeta(conn net.Conn, uplinkMode obfsUplinkMode) net.Conn {
+	if conn == nil {
+		return nil
+	}
+	return &connWithObfsMeta{Conn: conn, uplinkPacked: uplinkMode == obfsUplinkPacked}
+}
+
+type downlinkWriterSwitcher interface {
+	ReplaceWriter(writer io.Writer, closers ...func() error)
+}
+
+func ConnUplinkPacked(conn net.Conn) (bool, bool) {
+	if conn == nil {
+		return false, false
+	}
+	v, ok := conn.(obfsMetaConn)
+	if !ok {
+		return false, false
+	}
+	return v.SudokuUplinkPacked(), true
+}
+
+func switchConnDownlinkWriter(conn net.Conn, writer io.Writer, closers ...func() error) bool {
+	switch v := conn.(type) {
+	case downlinkWriterSwitcher:
+		v.ReplaceWriter(writer, closers...)
+		return true
+	case *connWithObfsMeta:
+		if inner, ok := v.Conn.(downlinkWriterSwitcher); ok {
+			inner.ReplaceWriter(writer, closers...)
+			return true
+		}
+	}
+	return false
+}
+
+func buildClientObfsConnForMode(raw net.Conn, table *sudoku.Table, paddingMin, paddingMax int, pureDownlink bool, uplinkMode obfsUplinkMode) net.Conn {
+	uplinkTable := table
+	downlinkTable := table.OppositeDirection()
+
+	var reader io.Reader
+	if pureDownlink {
+		reader = sudoku.NewConn(raw, downlinkTable, paddingMin, paddingMax, false)
+	} else {
+		reader = sudoku.NewPackedConn(raw, downlinkTable, paddingMin, paddingMax)
+	}
+
+	var writer io.Writer
+	var closers []func() error
+	switch uplinkMode {
+	case obfsUplinkPacked:
+		packed := sudoku.NewPackedConn(raw, uplinkTable, paddingMin, paddingMax)
+		writer = packed
+		closers = append(closers, packed.Flush)
+	default:
+		writer = sudoku.NewConn(raw, uplinkTable, paddingMin, paddingMax, false)
+	}
+
+	return wrapConnWithObfsMeta(sudoku.NewDirectionalConn(raw, reader, writer, closers...), uplinkMode)
+}
+
+func buildServerObfsConnForMode(raw net.Conn, table *sudoku.Table, paddingMin, paddingMax int, pureDownlink bool, uplinkMode obfsUplinkMode, record bool) (recordingConn, net.Conn) {
+	var uplink recordingConn
+	switch uplinkMode {
+	case obfsUplinkPacked:
+		uplink = sudoku.NewPackedConnWithRecord(raw, table, paddingMin, paddingMax, record)
+	default:
+		uplink = sudoku.NewConn(raw, table, paddingMin, paddingMax, record)
+	}
+	downlink, closers := sudoku.NewServerDownlinkWriter(raw, table.OppositeDirection(), paddingMin, paddingMax, pureDownlink)
+	return uplink, wrapConnWithObfsMeta(sudoku.NewDirectionalConn(raw, uplink, downlink, closers...), uplinkMode)
+}
+
+// buildObfsConnForClient builds the obfuscation layer for client side, keeping Sudoku on uplink.
+func buildObfsConnForClient(raw net.Conn, table *sudoku.Table, cfg *config.Config) net.Conn {
+	return buildClientObfsConnForMode(raw, table, cfg.PaddingMin, cfg.PaddingMax, cfg.EnablePureDownlink, obfsUplinkPure)
+}
+
+func buildReverseObfsConnForClient(raw net.Conn, table *sudoku.Table, cfg *config.Config) net.Conn {
+	return buildClientObfsConnForMode(raw, table, cfg.PaddingMin, cfg.PaddingMax, cfg.EnablePureDownlink, obfsUplinkPacked)
+}
+
+// buildObfsConnForServer builds the obfuscation layer for server side, keeping Sudoku on uplink.
+// It returns the reader Sudoku connection (for fallback recording) and the composed net.Conn.
+func buildObfsConnForServer(raw net.Conn, table *sudoku.Table, cfg *config.Config, uplinkMode obfsUplinkMode, record bool) (recordingConn, net.Conn) {
+	return buildServerObfsConnForMode(raw, table, cfg.PaddingMin, cfg.PaddingMax, cfg.EnablePureDownlink, uplinkMode, record)
+}

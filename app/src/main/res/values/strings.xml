@@ -589,4 +589,11 @@
     <string name="export_internal_file">SakuraBox internal — save file</string>
     <string name="export_official_clipboard">Official sing-box — copy</string>
     <string name="export_official_file">Official sing-box — save file</string>
+    <string name="json_editor_search">Search JSON</string>
+    <string name="json_editor_search_hint">Find in JSON</string>
+    <string name="json_editor_search_previous">Previous match</string>
+    <string name="json_editor_search_next">Next match</string>
+    <string name="json_editor_search_close">Close search</string>
+    <string name="json_editor_search_count">%1$d/%2$d</string>
+    <string name="json_editor_search_count_description">Match %1$d of %2$d</string>
 </resources>

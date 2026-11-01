@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.ui.profile
 import android.annotation.SuppressLint
 import android.content.DialogInterface
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.Menu
 import android.view.MenuItem
 import android.view.ViewGroup.MarginLayoutParams
@@ -30,6 +31,7 @@ import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.toStringPretty
 import io.nekohasekai.sagernet.ui.ThemedActivity
+import io.nekohasekai.sagernet.ui.profile.editor.JsonEditorFeatures
 import io.nekohasekai.sagernet.widget.ListListener
 import moe.matsuri.nb4a.ui.ExtendedKeyboard
 import org.json.JSONObject
@@ -60,6 +62,7 @@ class ConfigEditActivity : ThemedActivity() {
     }
 
     lateinit var binding: LayoutEditConfigBinding
+    private lateinit var editorFeatures: JsonEditorFeatures
 
     @SuppressLint("InlinedApi")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,6 +76,7 @@ class ConfigEditActivity : ThemedActivity() {
 
         binding = LayoutEditConfigBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        editorFeatures = JsonEditorFeatures(this, binding, savedInstanceState)
 
         setSupportActionBar(findViewById(R.id.toolbar))
         supportActionBar?.apply {
@@ -260,20 +264,40 @@ class ConfigEditActivity : ThemedActivity() {
         return true
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        editorFeatures.saveState(outState)
+    }
+
     override fun onDestroy() {
+        if (::editorFeatures.isInitialized) editorFeatures.release()
         exitDialog?.dismiss()
         exitDialog = null
         super.onDestroy()
     }
 
+    override fun onKeyShortcut(keyCode: Int, event: KeyEvent): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_F && event.isCtrlPressed &&
+            !event.isAltPressed && !event.isShiftPressed && !event.isMetaPressed) {
+            editorFeatures.openSearch()
+            return true
+        }
+        return super.onKeyShortcut(keyCode, event)
+    }
+
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.profile_apply_menu, menu)
+        menuInflater.inflate(R.menu.json_editor_search_menu, menu)
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             android.R.id.home -> return onSupportNavigateUp()
+            R.id.action_json_search -> {
+                editorFeatures.openSearch()
+                return true
+            }
             R.id.action_apply -> {
                 saveAndExit()
                 return true

@@ -29,6 +29,7 @@ object ProtocolOptions {
     private fun choice(p: String, vararg v: String) = Field(p, Kind.CHOICE, choices = v.toList())
 
     fun protocol(bean: AbstractBean): String? = when (bean) {
+        is io.nekohasekai.sagernet.fmt.sudoku.SudokuBean -> "sudoku"
         is AnyTLSBean -> "anytls"
         is ShadowTLSBean -> "shadowtls"
         is HttpBean -> "http"
@@ -68,6 +69,7 @@ object ProtocolOptions {
 
     /** A copy for generated configuration. Hidden legacy data remains intact in the saved bean. */
     fun effectiveOptions(bean: AbstractBean, root: JsonObject): JsonObject {
+        if (bean is io.nekohasekai.sagernet.fmt.sudoku.SudokuBean) return root.deepCopy()
         var result = ConnectionSecurity.effectiveOptions(bean, root)
         fun omit(path: String) {
             result = set(result, Field(path, Kind.TEXT), "")
@@ -88,6 +90,7 @@ object ProtocolOptions {
 
     fun fields(bean: AbstractBean): List<Field> {
         val p = protocol(bean) ?: return emptyList()
+        if (p == "sudoku") return emptyList()
         val result = mutableListOf(duration("connect_timeout"))
         when (p) {
             "anytls" -> result += listOf(duration("idle_session_check_interval"), duration("idle_session_timeout"),

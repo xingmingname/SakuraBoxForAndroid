@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"libcore/device"
+	"libcore/sudoku"
 	"log"
 	"runtime"
 	"runtime/debug"
@@ -40,6 +41,7 @@ func VersionBox() string {
 	version := []string{
 		"sing-box: " + constant.Version,
 		runtime.Version() + "@" + runtime.GOOS + "/" + runtime.GOARCH,
+		"sudoku: " + sudoku.UpstreamCommit,
 	}
 
 	var tags string
@@ -128,6 +130,9 @@ func newSingBoxInstance(config string, localTransport LocalDNSTransport, platfor
 	err = options.UnmarshalJSONContext(ctx, configBytes)
 	if err != nil {
 		return nil, fmt.Errorf("decode config: %v", err)
+	}
+	if err = validateSudokuResources(options); err != nil {
+		return nil, err
 	}
 	// Test-only isolation policy: check final options before constructing any
 	// dialers or auxiliary clients. The main VPN keeps its original behavior.

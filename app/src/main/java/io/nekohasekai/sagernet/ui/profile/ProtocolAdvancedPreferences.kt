@@ -87,6 +87,7 @@ internal class ProtocolAdvancedPreferences(
 
     fun refresh() {
         val current = bean()
+        if (current is io.nekohasekai.sagernet.fmt.sudoku.SudokuBean) return
         val fields = ProtocolOptions.fields(current)
         val expandedCount = category?.initialExpandedChildrenCount ?: 0
         category?.let { fragment.preferenceScreen.removePreference(it) }

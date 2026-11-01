@@ -15,6 +15,70 @@
         android:layout_height="0.5dp"
         android:background="@android:color/darker_gray" />
 
+    <LinearLayout
+        android:id="@+id/json_search_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:visibility="gone">
+
+        <androidx.appcompat.widget.AppCompatEditText
+            android:id="@+id/json_search_query"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:minWidth="0dp"
+            android:hint="@string/json_editor_search_hint"
+            android:imeOptions="actionSearch|flagNoExtractUi"
+            android:importantForAutofill="no"
+            android:inputType="text|textNoSuggestions"
+            android:singleLine="true"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/json_search_count"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:minWidth="40dp"
+            android:fontFamily="monospace"
+            android:gravity="center"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textDirection="ltr"
+            tools:text="2/8" />
+
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/json_search_previous"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/json_editor_search_previous"
+            android:padding="12dp"
+            app:srcCompat="@drawable/ic_editor_match_previous"
+            app:tint="?attr/colorControlNormal" />
+
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/json_search_next"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/json_editor_search_next"
+            android:padding="12dp"
+            app:srcCompat="@drawable/ic_editor_match_next"
+            app:tint="?attr/colorControlNormal" />
+
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/json_search_close"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/json_editor_search_close"
+            android:padding="12dp"
+            app:srcCompat="@drawable/ic_navigation_close"
+            app:tint="?attr/colorControlNormal" />
+    </LinearLayout>
+
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"

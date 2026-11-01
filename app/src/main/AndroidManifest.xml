@@ -128,6 +128,7 @@
 
                 <data android:scheme="sn" />
                 <data android:scheme="ss" />
+                <data android:scheme="sudoku" />
                 <data android:scheme="ssr" />
                 <data android:scheme="socks" />
                 <data android:scheme="socks4" />
@@ -195,6 +196,9 @@
         <activity
             android:name="moe.matsuri.nb4a.proxy.shadowtls.ShadowTLSSettingsActivity"
             android:configChanges="uiMode" />
+        <activity
+            android:name=".ui.profile.SudokuSettingsActivity"
+            android:exported="false" />
         <activity
             android:name="moe.matsuri.nb4a.proxy.anytls.AnyTLSSettingsActivity"
             android:configChanges="uiMode" />

@@ -7,6 +7,7 @@ import com.esotericsoftware.kryo.io.ByteBufferInput
 import com.esotericsoftware.kryo.io.ByteBufferOutput
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.fmt.*
+import io.nekohasekai.sagernet.fmt.sudoku.SudokuBean
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.http.toUri
 import io.nekohasekai.sagernet.fmt.hysteria.*
@@ -68,6 +69,7 @@ data class ProxyEntity(
     var wgBean: WireGuardBean? = null,
     var shadowTLSBean: ShadowTLSBean? = null,
     var anyTLSBean: AnyTLSBean? = null,
+    var sudokuBean: SudokuBean? = null,
     var chainBean: ChainBean? = null,
     var nekoBean: NekoBean? = null,
     var configBean: ConfigBean? = null,
@@ -90,6 +92,7 @@ data class ProxyEntity(
         const val TYPE_TUIC = 20
         const val TYPE_MIERU = 21
         const val TYPE_ANYTLS = 22
+        const val TYPE_SUDOKU = 23
 
         const val TYPE_CONFIG = 998
         const val TYPE_NEKO = 999
@@ -174,6 +177,7 @@ data class ProxyEntity(
             TYPE_TUIC -> tuicBean = KryoConverters.tuicDeserialize(byteArray)
             TYPE_SHADOWTLS -> shadowTLSBean = KryoConverters.shadowTLSDeserialize(byteArray)
             TYPE_ANYTLS -> anyTLSBean = KryoConverters.anyTLSDeserialize(byteArray)
+            TYPE_SUDOKU -> sudokuBean = KryoConverters.sudokuDeserialize(byteArray)
             TYPE_CHAIN -> chainBean = KryoConverters.chainDeserialize(byteArray)
             TYPE_NEKO -> nekoBean = KryoConverters.nekoDeserialize(byteArray)
             TYPE_CONFIG -> configBean = KryoConverters.configDeserialize(byteArray)
@@ -195,6 +199,7 @@ data class ProxyEntity(
         TYPE_TUIC -> "TUIC"
         TYPE_SHADOWTLS -> "ShadowTLS"
         TYPE_ANYTLS -> "AnyTLS"
+        TYPE_SUDOKU -> "Sudoku"
         TYPE_CHAIN -> chainName
         TYPE_NEKO -> nekoBean!!.displayType()
         TYPE_CONFIG -> configBean!!.displayType()
@@ -220,6 +225,7 @@ data class ProxyEntity(
             TYPE_TUIC -> tuicBean
             TYPE_SHADOWTLS -> shadowTLSBean
             TYPE_ANYTLS -> anyTLSBean
+            TYPE_SUDOKU -> sudokuBean
             TYPE_CHAIN -> chainBean
             TYPE_NEKO -> nekoBean
             TYPE_CONFIG -> configBean
@@ -236,6 +242,9 @@ data class ProxyEntity(
 
     fun haveStandardLink(): Boolean {
         if (io.nekohasekai.sagernet.fmt.NodeJson.enabled(requireBean())) return false
+        (requireBean() as? SudokuBean)?.let {
+            return io.nekohasekai.sagernet.fmt.sudoku.SudokuShareLink.export(it) != null
+        }
         if (io.nekohasekai.sagernet.fmt.ProtocolOptions.hasAdvancedOptions(requireBean())) return false
         (requireBean() as? AnyTLSBean)?.let {
             if (!it.echConfig.isNullOrBlank() || !it.alpn.isNullOrBlank() || !it.certificates.isNullOrBlank()) return false
@@ -252,6 +261,7 @@ data class ProxyEntity(
 
     fun toStdLink(compact: Boolean = false): String = with(requireBean()) {
         if (io.nekohasekai.sagernet.fmt.NodeJson.enabled(this)) return@with toUniversalLink()
+        if (this is SudokuBean) return@with io.nekohasekai.sagernet.fmt.sudoku.SudokuShareLink.export(this) ?: toUniversalLink()
         if (io.nekohasekai.sagernet.fmt.ProtocolOptions.hasAdvancedOptions(this) ||
             (this is AnyTLSBean && (!echConfig.isNullOrBlank() || !alpn.isNullOrBlank() || !certificates.isNullOrBlank()))) {
             return@with toUniversalLink()
@@ -371,6 +381,7 @@ data class ProxyEntity(
         tuicBean = null
         shadowTLSBean = null
         anyTLSBean = null
+        sudokuBean = null
         chainBean = null
         configBean = null
         nekoBean = null
@@ -441,6 +452,11 @@ data class ProxyEntity(
                 shadowTLSBean = bean
             }
 
+            is SudokuBean -> {
+                type = TYPE_SUDOKU
+                sudokuBean = bean
+            }
+
             is AnyTLSBean -> {
                 type = TYPE_ANYTLS
                 anyTLSBean = bean
@@ -483,6 +499,7 @@ data class ProxyEntity(
                 TYPE_TUIC -> TuicSettingsActivity::class.java
                 TYPE_SHADOWTLS -> ShadowTLSSettingsActivity::class.java
                 TYPE_ANYTLS -> AnyTLSSettingsActivity::class.java
+                TYPE_SUDOKU -> SudokuSettingsActivity::class.java
                 TYPE_CHAIN -> ChainSettingsActivity::class.java
                 TYPE_CONFIG -> ConfigSettingActivity::class.java
                 else -> throw IllegalArgumentException()
