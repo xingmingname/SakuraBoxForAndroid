@@ -10,31 +10,13 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_CONFIG
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.fmt.ConfigBuildResult.IndexEntity
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
-import io.nekohasekai.sagernet.fmt.hysteria.buildSingBoxOutboundHysteriaBean
-import io.nekohasekai.sagernet.fmt.internal.ChainBean
-import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
-import io.nekohasekai.sagernet.fmt.shadowsocks.buildSingBoxOutboundShadowsocksBean
-import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
-import io.nekohasekai.sagernet.fmt.socks.buildSingBoxOutboundSocksBean
-import io.nekohasekai.sagernet.fmt.ssh.SSHBean
-import io.nekohasekai.sagernet.fmt.ssh.buildSingBoxOutboundSSHBean
-import io.nekohasekai.sagernet.fmt.tuic.TuicBean
-import io.nekohasekai.sagernet.fmt.tuic.buildSingBoxOutboundTuicBean
-import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
-import io.nekohasekai.sagernet.fmt.v2ray.buildSingBoxOutboundStandardV2RayBean
-import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
-import io.nekohasekai.sagernet.fmt.wireguard.buildSingBoxEndpointWireguardBean
 import io.nekohasekai.sagernet.ktx.isIpAddress
 import io.nekohasekai.sagernet.ktx.mkPort
 import io.nekohasekai.sagernet.utils.PackageCache
 import moe.matsuri.nb4a.*
 import moe.matsuri.nb4a.SingBoxOptions.*
 import moe.matsuri.nb4a.plugin.Plugins
-import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
-import moe.matsuri.nb4a.proxy.anytls.buildSingBoxOutboundAnyTLSBean
 import moe.matsuri.nb4a.proxy.config.ConfigBean
-import moe.matsuri.nb4a.proxy.shadowtls.ShadowTLSBean
-import moe.matsuri.nb4a.proxy.shadowtls.buildSingBoxOutboundShadowTLSBean
 import moe.matsuri.nb4a.utils.JavaUtil.gson
 import moe.matsuri.nb4a.utils.Util
 import moe.matsuri.nb4a.utils.listByLineOrComma
@@ -108,25 +90,7 @@ fun buildConfig(
     val jsonOutbounds = mutableMapOf<String, SingBoxOption>()
     val group = SagerDatabase.groupDao.getById(proxy.groupId)
 
-    val chainGraph = ChainGraph(
-        { SagerNet.application.getString(R.string.circular_reference_sum) },
-        { SagerNet.application.getString(R.string.chain_nesting_too_deep) })
-    fun ProxyEntity.resolveChainInternal(): MutableList<ProxyEntity> {
-        val bean = requireBean()
-        require(bean.jsonMode != NodeJson.FULL) { "A complete JSON profile cannot be embedded in a chain or routing rule" }
-        if (bean.jsonMode == NodeJson.OUTBOUND) return mutableListOf(this)
-        if (bean is ChainBean) return chainGraph.within(id) {
-            val beans = SagerDatabase.proxyDao.getEntities(bean.proxies)
-            val beansMap = beans.associateBy { it.id }
-            val beanList = ArrayList<ProxyEntity>()
-            for (proxyId in bean.proxies) {
-                val item = beansMap[proxyId] ?: continue
-                beanList.addAll(item.resolveChainInternal())
-            }
-            beanList.asReversed()
-        }
-        return mutableListOf(this)
-    }
+    val chainProfiles = ChainProfileResolver()
 
     fun selectorName(name_: String): String {
         var name = name_
@@ -137,20 +101,6 @@ fun buildConfig(
         }
         selectorNames.add(name)
         return name
-    }
-
-    fun ProxyEntity.resolveChain(): MutableList<ProxyEntity> {
-        val thisGroup = SagerDatabase.groupDao.getById(groupId)
-        val frontProxy = thisGroup?.frontProxy?.let { SagerDatabase.proxyDao.getById(it) }
-        val landingProxy = thisGroup?.landingProxy?.let { SagerDatabase.proxyDao.getById(it) }
-        val list = resolveChainInternal()
-        if (frontProxy != null) {
-            list.add(frontProxy)
-        }
-        if (landingProxy != null) {
-            list.add(0, landingProxy)
-        }
-        return list
     }
 
     val extraRules = if (forTest) listOf() else SagerDatabase.rulesDao.enabledRules()
@@ -288,7 +238,7 @@ fun buildConfig(
         fun buildChain(
             chainId: Long, entity: ProxyEntity
         ): String {
-            val profileList = entity.resolveChain()
+            val profileList = chainProfiles.resolve(entity)
             val chainTrafficSet = HashSet<ProxyEntity>().apply {
                 plusAssign(profileList)
                 add(entity)
@@ -384,41 +334,7 @@ fun buildConfig(
                 } else {
                     // internal outbound
 
-                    currentOutbound = when (bean) {
-                        is ConfigBean -> CustomSingBoxOption(bean.config)
-
-                        is ShadowTLSBean -> // before StandardV2RayBean
-                            buildSingBoxOutboundShadowTLSBean(bean)
-
-                        is StandardV2RayBean -> // http/trojan/vmess/vless
-                            buildSingBoxOutboundStandardV2RayBean(bean)
-
-                        is HysteriaBean ->
-                            buildSingBoxOutboundHysteriaBean(bean)
-
-                        is TuicBean ->
-                            buildSingBoxOutboundTuicBean(bean)
-
-                        is SOCKSBean ->
-                            buildSingBoxOutboundSocksBean(bean)
-
-                        is ShadowsocksBean ->
-                            buildSingBoxOutboundShadowsocksBean(bean)
-
-                        is WireGuardBean ->
-                            buildSingBoxEndpointWireguardBean(bean).apply { tag = tagOut }
-
-                        is SSHBean ->
-                            buildSingBoxOutboundSSHBean(bean)
-
-                        is io.nekohasekai.sagernet.fmt.sudoku.SudokuBean ->
-                            io.nekohasekai.sagernet.fmt.sudoku.SudokuOptions.buildOutbound(bean)
-
-                        is AnyTLSBean ->
-                            buildSingBoxOutboundAnyTLSBean(bean)
-
-                        else -> throw IllegalStateException("can't reach")
-                    }
+                    currentOutbound = buildNativeProfileOptions(bean, tagOut)
 
                     // internal mux
                     if (!muxApplied) {
@@ -794,7 +710,7 @@ fun buildConfig(
             trafficMap,
             tagMap,
             if (buildSelector) group.id else -1L,
-            trafficMap.values.flatten().associate { it.id to NodeJson.state(it.requireBean()) }
+            trafficMap.values.flatten().associate { it.id to NodeJson.state(it.requireBean()) },
         )
     }
 

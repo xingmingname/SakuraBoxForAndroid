@@ -4,7 +4,6 @@ import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.ServiceNotification
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.ktx.Logs
-import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import kotlinx.coroutines.runBlocking
 
 class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = null) :
@@ -16,7 +15,9 @@ class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = 
     var displayProfileName = ServiceNotification.genTitle(profile)
 
     // for TrafficLooper
-    var looper: TrafficLooper? = null
+    @Volatile var looper: TrafficLooper? = null
+        private set
+    private var closed = false
 
     override fun buildConfig() {
         super.buildConfig()
@@ -33,6 +34,11 @@ class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = 
 
     override suspend fun init() {
         super.init()
+        service?.let {
+            val statistics = TrafficLooper(it.data, this)
+            looper = statistics
+            statistics.prepare()
+        }
         Logs.d("Plugin configurations prepared: ${pluginConfigs.size}")
     }
 
@@ -43,17 +49,21 @@ class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = 
     override fun launch() {
         box.setAsMain()
         super.launch() // start box
-        runOnDefaultDispatcher {
-            looper = service?.let { TrafficLooper(it.data, this) }
-            looper?.start()
-        }
+        looper?.start()
     }
 
+    @Synchronized
     override fun close() {
-        super.close()
+        if (closed) return
+        closed = true
         runBlocking {
-            looper?.stop()
-            looper = null
+            looper?.pause()
+            try {
+                super.close()
+            } finally {
+                looper?.finish()
+                looper = null
+            }
         }
     }
 }

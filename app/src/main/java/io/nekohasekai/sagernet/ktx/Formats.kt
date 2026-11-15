@@ -7,6 +7,7 @@ import io.nekohasekai.sagernet.fmt.http.parseHttp
 import io.nekohasekai.sagernet.fmt.hysteria.parseHysteria1
 import io.nekohasekai.sagernet.fmt.hysteria.parseHysteria2
 import io.nekohasekai.sagernet.fmt.naive.parseNaive
+import io.nekohasekai.sagernet.fmt.nakis.NakisShareLink
 import io.nekohasekai.sagernet.fmt.parseUniversal
 import io.nekohasekai.sagernet.fmt.shadowsocks.parseShadowsocks
 import io.nekohasekai.sagernet.fmt.socks.parseSOCKS
@@ -130,6 +131,13 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
             }.onFailure {
                 if (it is ImportLimits.InputLimitException || it is InterruptedIOException || it is CancellationException) throw it
                 Logs.w(it)
+            }
+        } else if (startsWith(NakisShareLink.PREFIX, ignoreCase = true)) {
+            runCatching {
+                entities.add(NakisShareLink.parse(this))
+            }.onFailure {
+                if (it is ImportLimits.InputLimitException || it is InterruptedIOException || it is CancellationException) throw it
+                Logs.w("Invalid or unsupported Nakis share link")
             }
         } else if (startsWith("sudoku://", ignoreCase = true)) {
             runCatching {

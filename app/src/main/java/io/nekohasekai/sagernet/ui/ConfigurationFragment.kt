@@ -5,6 +5,8 @@ import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withContext
 
 import android.annotation.SuppressLint
 import android.content.Intent
@@ -33,6 +35,7 @@ import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.size
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceDataStore
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -63,7 +66,7 @@ import io.nekohasekai.sagernet.databinding.LayoutImportLinksBinding
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.toUniversalLink
 import io.nekohasekai.sagernet.group.GroupUpdater
-import io.nekohasekai.sagernet.group.RawUpdater
+import io.nekohasekai.sagernet.group.SubscriptionParser
 import io.nekohasekai.sagernet.ktx.FixedLinearLayoutManager
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.SubscriptionFoundException
@@ -93,6 +96,7 @@ import io.nekohasekai.sagernet.ui.profile.SSHSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.ShadowsocksSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.SocksSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.SudokuSettingsActivity
+import io.nekohasekai.sagernet.ui.profile.NakisSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.TrojanGoSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.TrojanSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.TuicSettingsActivity
@@ -304,7 +308,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                         ImportLimits.ZipReader(requireContext().contentResolver.openInputStream(file)!!).use { zip ->
                             while (true) {
                                 val entry = runInterruptible(Dispatchers.IO) { zip.next() } ?: break
-                                RawUpdater.parseRaw(entry.text, entry.name)?.let { parsed ->
+                                SubscriptionParser.parseRaw(entry.text, entry.name)?.let { parsed ->
                                     ImportLimits.checkNodeCount(proxies.size.toLong() + parsed.size)
                                     proxies.addAll(parsed)
                                 }
@@ -314,7 +318,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                         val fileText = runInterruptible(Dispatchers.IO) {
                             requireContext().contentResolver.openInputStream(file)!!.use { ImportLimits.readUtf8(it) }
                         }
-                        RawUpdater.parseRaw(fileText, fileName ?: "")?.let { proxies.addAll(it) }
+                        SubscriptionParser.parseRaw(fileText, fileName ?: "")?.let { proxies.addAll(it) }
                     }
                     currentCoroutineContext().ensureActive()
                     if (proxies.isEmpty()) onMainDispatcher {
@@ -349,7 +353,7 @@ class ConfigurationFragment @JvmOverloads constructor(
 
     private fun importLinkText(text: String, emptyMessage: Int) = runOnDefaultDispatcher {
         try {
-            val proxies = RawUpdater.parseRaw(text)
+            val proxies = SubscriptionParser.parseRaw(text)
             if (proxies.isNullOrEmpty()) onMainDispatcher {
                 snackbar(getString(emptyMessage)).show()
             } else import(proxies)
@@ -445,6 +449,10 @@ class ConfigurationFragment @JvmOverloads constructor(
                 startActivity(Intent(requireActivity(), ShadowTLSSettingsActivity::class.java))
             }
 
+            R.id.action_new_nakis -> {
+                startActivity(Intent(requireActivity(), NakisSettingsActivity::class.java))
+            }
+
             R.id.action_new_sudoku -> {
                 startActivity(Intent(requireActivity(), SudokuSettingsActivity::class.java))
             }
@@ -476,17 +484,7 @@ class ConfigurationFragment @JvmOverloads constructor(
             R.id.action_clear_traffic_statistics -> {
                 runOnDefaultDispatcher {
                     val profiles = SagerDatabase.proxyDao.getByGroup(DataStore.currentGroupId())
-                    val toClear = mutableListOf<ProxyEntity>()
-                    if (profiles.isNotEmpty()) for (profile in profiles) {
-                        if (profile.tx != 0L || profile.rx != 0L) {
-                            profile.tx = 0
-                            profile.rx = 0
-                            toClear.add(profile)
-                        }
-                    }
-                    if (toClear.isNotEmpty()) {
-                        ProfileManager.updateProfile(toClear)
-                    }
+                    ProfileManager.clearTraffic(profiles.map { it.id })
                 }
             }
 
@@ -1073,8 +1071,10 @@ class ConfigurationFragment @JvmOverloads constructor(
                 return DataStore.serviceState.let { it.canStop || it == BaseService.State.Stopped }
             }
 
-        lateinit var layoutManager: LinearLayoutManager
-        lateinit var configurationListView: RecyclerView
+        private var profileBinding: LayoutProfileListBinding? = null
+        private var profileLayoutManager: LinearLayoutManager? = null
+        val layoutManager get() = checkNotNull(profileLayoutManager)
+        val configurationListView get() = checkNotNull(profileBinding).configurationList
 
         val select by lazy {
             try {
@@ -1095,15 +1095,8 @@ class ConfigurationFragment @JvmOverloads constructor(
 
         override fun onResume() {
             super.onResume()
-
-            if (::configurationListView.isInitialized && configurationListView.size == 0) {
-                configurationListView.adapter = adapter
-                runOnDefaultDispatcher {
-                    adapter?.reloadProfiles()
-                }
-            } else if (!::configurationListView.isInitialized) {
-                onViewCreated(requireView(), null)
-            }
+            if (profileBinding == null) view?.let { onViewCreated(it, null) }
+            if (profileBinding == null) return
             checkOrderMenu()
             configurationListView.requestFocus()
         }
@@ -1158,14 +1151,16 @@ class ConfigurationFragment @JvmOverloads constructor(
         override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
             if (!::proxyGroup.isInitialized) return
 
-            configurationListView = view.findViewById(R.id.configuration_list)
-            layoutManager = FixedLinearLayoutManager(configurationListView)
+            adapter?.dispose()
+            profileBinding = LayoutProfileListBinding.bind(view)
+            profileLayoutManager = FixedLinearLayoutManager(configurationListView)
             configurationListView.layoutManager = layoutManager
             adapter = ConfigurationAdapter()
             ProfileManager.addListener(adapter!!)
             GroupManager.addListener(adapter!!)
             configurationListView.adapter = adapter
             configurationListView.setItemViewCacheSize(20)
+            adapter?.reloadProfiles()
 
             if (!select) {
 
@@ -1212,16 +1207,14 @@ class ConfigurationFragment @JvmOverloads constructor(
 
         }
 
-        override fun onDestroy() {
-            adapter?.let {
-                ProfileManager.removeListener(it)
-                GroupManager.removeListener(it)
-            }
-
-            super.onDestroy()
-
-            if (!::undoManager.isInitialized) return
-            undoManager.flush()
+        override fun onDestroyView() {
+            adapter?.dispose()
+            profileBinding?.configurationList?.adapter = null
+            adapter = null
+            if (::undoManager.isInitialized) undoManager.flush()
+            profileLayoutManager = null
+            profileBinding = null
+            super.onDestroyView()
         }
 
         inner class ConfigurationAdapter : RecyclerView.Adapter<ConfigurationHolder>(),
@@ -1236,18 +1229,46 @@ class ConfigurationFragment @JvmOverloads constructor(
             var configurationIdList: MutableList<Long> = mutableListOf()
             internal val configurationList = ProfileSearchCache()
 
-            private fun getItem(profileId: Long): ProxyEntity {
-                var profile = configurationList[profileId]
-                if (profile == null) {
-                    profile = ProfileManager.getProfile(profileId)
-                    if (profile != null) {
-                        configurationList[profileId] = profile
-                    }
-                }
-                return profile!!
+            private var reloadJob: Job? = null
+            private val missingLoads = mutableMapOf<Long, Job>()
+            private val hiddenIds = mutableSetOf<Long>()
+            private val reloadTraffic = mutableMapOf<Long, TrafficData>()
+            private var query = ""
+
+            private fun active() = adapter === this && profileBinding != null
+            private fun getItemAt(index: Int) = configurationIdList.getOrNull(index)?.let(configurationList::get)
+
+            fun dispose() {
+                ProfileManager.removeListener(this)
+                GroupManager.removeListener(this)
+                reloadJob?.cancel()
+                missingLoads.values.toList().forEach { it.cancel() }
+                missingLoads.clear()
+                reloadTraffic.clear()
             }
 
-            private fun getItemAt(index: Int) = getItem(configurationIdList[index])
+            private fun loadMissing(id: Long) {
+                if (!active() || missingLoads[id]?.isActive == true) return
+                missingLoads[id] = viewLifecycleOwner.lifecycleScope.launch {
+                    try {
+                        val profile = withContext(Dispatchers.IO) { ProfileManager.getProfile(id) }
+                        if (!active() || id in hiddenIds || configurationList.containsKey(id)) return@launch
+                        val index = configurationIdList.indexOf(id)
+                        if (index < 0) return@launch
+                        if (profile == null || profile.groupId != proxyGroup.id) {
+                            configurationIdList.removeAt(index)
+                            notifyItemRemoved(index)
+                        } else {
+                            configurationList[id] = profile
+                            notifyItemChanged(index)
+                        }
+                    } catch (cancelled: CancellationException) { throw cancelled }
+                    catch (error: Exception) { Logs.w(error) }
+                    finally {
+                        if (missingLoads[id] === currentCoroutineContext()[Job]) missingLoads.remove(id)
+                    }
+                }
+            }
 
             override fun onCreateViewHolder(
                 parent: ViewGroup,
@@ -1264,10 +1285,17 @@ class ConfigurationFragment @JvmOverloads constructor(
             }
 
             override fun onBindViewHolder(holder: ConfigurationHolder, position: Int) {
-                try {
-                    holder.bind(getItemAt(position))
-                } catch (ignored: NullPointerException) { // when group deleted
+                val profile = getItemAt(position)
+                if (profile != null) holder.bind(profile)
+                else {
+                    holder.unbind()
+                    configurationIdList.getOrNull(position)?.let(::loadMissing)
                 }
+            }
+
+            override fun onViewRecycled(holder: ConfigurationHolder) {
+                holder.unbind()
+                super.onViewRecycled(holder)
             }
 
             override fun getItemCount(): Int {
@@ -1277,6 +1305,7 @@ class ConfigurationFragment @JvmOverloads constructor(
             private val updated = HashSet<ProxyEntity>()
 
             fun filter(name: String) {
+                query = name
                 if (name.isEmpty()) {
                     configurationIdList.clear()
                     configurationIdList.addAll(configurationList.orderedIds(proxyGroup.order))
@@ -1294,13 +1323,18 @@ class ConfigurationFragment @JvmOverloads constructor(
             }
 
             fun move(from: Int, to: Int) {
-                val first = getItemAt(from)
+                if (from !in configurationIdList.indices || to !in configurationIdList.indices) return
+                if ((minOf(from, to)..maxOf(from, to)).any { getItemAt(it) == null }) {
+                    reloadProfiles()
+                    return
+                }
+                val first = requireNotNull(getItemAt(from))
                 var previousOrder = first.userOrder
                 val (step, range) = if (from < to) Pair(1, from until to) else Pair(
                     -1, to + 1 downTo from
                 )
                 for (i in range) {
-                    val next = getItemAt(i + step)
+                    val next = requireNotNull(getItemAt(i + step))
                     val order = next.userOrder
                     next.userOrder = previousOrder
                     previousOrder = order
@@ -1313,21 +1347,35 @@ class ConfigurationFragment @JvmOverloads constructor(
                 notifyItemMoved(from, to)
             }
 
-            fun commitMove() = runOnDefaultDispatcher {
-                updated.forEach { SagerDatabase.proxyDao.updateProxy(it) }
+            fun commitMove() {
+                val pending = updated.map { it.id to it.userOrder }
                 updated.clear()
+                runOnDefaultDispatcher {
+                    withContext(Dispatchers.IO) {
+                        SagerDatabase.instance.runInTransaction {
+                            val profiles = pending.mapNotNull { (id, order) ->
+                                SagerDatabase.proxyDao.getById(id)?.apply { userOrder = order }
+                            }
+                            SagerDatabase.proxyDao.updateProxy(profiles)
+                        }
+                    }
+                }
             }
 
             fun remove(pos: Int) {
+                configurationIdList.getOrNull(pos)?.let { hiddenIds.add(it) }
                 if (!configurationList.removeVisible(configurationIdList, pos)) return
                 notifyItemRemoved(pos)
             }
 
             override fun undo(actions: List<Pair<Int, ProxyEntity>>) {
+                if (!active()) return
                 for ((index, item) in actions) {
                     configurationListView.post {
+                        if (!active()) return@post
+                        hiddenIds.remove(item.id)
                         configurationList[item.id] = item
-                        configurationIdList.add(index, item.id)
+                        configurationIdList.add(index.coerceIn(0, configurationIdList.size), item.id)
                         notifyItemInserted(index)
                     }
                 }
@@ -1342,124 +1390,111 @@ class ConfigurationFragment @JvmOverloads constructor(
                 }
             }
 
-            override suspend fun onAdd(profile: ProxyEntity) {
-                if (profile.groupId != proxyGroup.id) return
-
-                configurationListView.post {
-                    if (::undoManager.isInitialized) {
-                        undoManager.flush()
-                    }
-                    val pos = itemCount
-                    configurationList[profile.id] = profile
+            override suspend fun onAdd(profile: ProxyEntity) = onMainDispatcher {
+                if (!active() || profile.groupId != proxyGroup.id || profile.id in hiddenIds) return@onMainDispatcher
+                if (::undoManager.isInitialized) undoManager.flush()
+                configurationList[profile.id] = profile
+                if (profile.id !in configurationIdList && (query.isEmpty() || profile.id in configurationList.matchingIds(query))) {
                     configurationIdList.add(profile.id)
-                    notifyItemInserted(pos)
+                    notifyItemInserted(configurationIdList.lastIndex)
                 }
+                if (reloadJob?.isActive == true) reloadProfiles()
             }
 
-            override suspend fun onUpdated(profile: ProxyEntity, noTraffic: Boolean) {
-                if (profile.groupId != proxyGroup.id) return
-                configurationListView.post {
-                    val oldProfile = configurationList.updateExisting(profile) ?: return@post
-                    val index = configurationIdList.indexOf(profile.id)
-                    if (index < 0) return@post
-                    if (::undoManager.isInitialized) {
-                        undoManager.flush()
+            override suspend fun onUpdated(profile: ProxyEntity, noTraffic: Boolean) = onMainDispatcher {
+                if (!active() || profile.groupId != proxyGroup.id || profile.id in hiddenIds) return@onMainDispatcher
+                val old = configurationList.updateExisting(profile)
+                if (old == null && profile.id in configurationIdList) configurationList[profile.id] = profile
+                val index = configurationIdList.indexOf(profile.id)
+                if (index >= 0) {
+                    if (::undoManager.isInitialized) undoManager.flush()
+                    if (noTraffic && old != null) {
+                        profile.rx = old.rx
+                        profile.tx = old.tx
                     }
                     notifyItemChanged(index)
-                    //
-                    if (noTraffic) {
-                        runOnDefaultDispatcher {
-                            onUpdated(
-                                TrafficData(
-                                    id = profile.id,
-                                    rx = oldProfile.rx,
-                                    tx = oldProfile.tx
-                                )
-                            )
-                        }
-                    }
+                }
+                if (reloadJob?.isActive == true) reloadProfiles()
+            }
+
+            override suspend fun onUpdated(data: TrafficData) = onMainDispatcher {
+                if (!active()) return@onMainDispatcher
+                if (reloadJob?.isActive == true) reloadTraffic[data.id] = data
+                val entity = configurationList[data.id] ?: return@onMainDispatcher
+                entity.rx = data.rx
+                entity.tx = data.tx
+                val index = configurationIdList.indexOf(data.id)
+                if (index < 0) return@onMainDispatcher
+                val holder = configurationListView.findViewHolderForItemId(data.id) as? ConfigurationHolder
+                if (holder?.bindingAdapterPosition == index && holder.itemId == data.id) {
+                    holder.bindTraffic(data)
                 }
             }
 
-            override suspend fun onUpdated(data: TrafficData) {
-                try {
-                    val index = configurationIdList.indexOf(data.id)
-                    if (index != -1) {
-                        val holder = layoutManager.findViewByPosition(index)
-                            ?.let { configurationListView.getChildViewHolder(it) } as ConfigurationHolder?
-                        if (holder != null) {
-                            onMainDispatcher {
-                                holder.bind(holder.entity, data)
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    Logs.w(e)
-                }
-            }
-
-            override suspend fun onRemoved(groupId: Long, profileId: Long) {
-                if (groupId != proxyGroup.id) return
-                configurationListView.post {
-                    configurationList.remove(profileId)
-                    val index = configurationIdList.indexOf(profileId)
-                    if (index < 0) return@post
+            override suspend fun onRemoved(groupId: Long, profileId: Long) = onMainDispatcher {
+                if (!active() || groupId != proxyGroup.id) return@onMainDispatcher
+                hiddenIds.remove(profileId)
+                reloadTraffic.remove(profileId)
+                configurationList.remove(profileId)
+                val index = configurationIdList.indexOf(profileId)
+                if (index >= 0) {
                     configurationIdList.removeAt(index)
                     notifyItemRemoved(index)
                 }
+                if (reloadJob?.isActive == true) reloadProfiles()
             }
 
             override suspend fun groupAdd(group: ProxyGroup) = Unit
             override suspend fun groupRemoved(groupId: Long) = Unit
 
-            override suspend fun groupUpdated(group: ProxyGroup) {
-                if (group.id != proxyGroup.id) return
+            override suspend fun groupUpdated(group: ProxyGroup) = onMainDispatcher {
+                if (!active() || group.id != proxyGroup.id) return@onMainDispatcher
                 proxyGroup = group
                 reloadProfiles()
             }
 
             override suspend fun groupUpdated(groupId: Long) {
-                if (groupId != proxyGroup.id) return
-                proxyGroup = SagerDatabase.groupDao.getById(groupId)!!
-                reloadProfiles()
+                if (!onMainDispatcher { active() && groupId == proxyGroup.id }) return
+                val group = withContext(Dispatchers.IO) { SagerDatabase.groupDao.getById(groupId) } ?: return
+                groupUpdated(group)
             }
 
-            fun reloadProfiles() {
-                var newProfiles = SagerDatabase.proxyDao.getByGroup(proxyGroup.id)
-                when (proxyGroup.order) {
-                    GroupOrder.BY_NAME -> {
-                        newProfiles = newProfiles.sortedBy { it.displayName() }
-
-                    }
-
-                    GroupOrder.BY_DELAY -> {
-                        newProfiles =
-                            newProfiles.sortedBy { if (it.status == 1) it.ping else 114514 }
-                    }
-                }
-
-                val newProfileIds = newProfiles.map { it.id }
-
-                var selectedProfileIndex = -1
-
-                if (selected) {
-                    val selectedProxy = selectedItem?.id ?: DataStore.selectedProxy
-                    selectedProfileIndex = newProfileIds.indexOf(selectedProxy)
-                }
-
-                configurationListView.post {
-                    configurationList.clear()
-                    configurationList.putAll(newProfiles.associateBy { it.id })
-                    configurationIdList.clear()
-                    configurationIdList.addAll(newProfileIds)
-                    notifyDataSetChanged()
-
-                    if (selectedProfileIndex != -1) {
-                        configurationListView.scrollTo(selectedProfileIndex, true)
-                    } else if (newProfiles.isNotEmpty()) {
-                        configurationListView.scrollTo(0, true)
-                    }
-
+            fun reloadProfiles() = runOnMainDispatcher {
+                if (!active()) return@runOnMainDispatcher
+                reloadJob?.cancel()
+                reloadTraffic.clear()
+                val groupId = proxyGroup.id
+                val order = proxyGroup.order
+                val selectedId = selectedItem?.id
+                reloadJob = viewLifecycleOwner.lifecycleScope.launch {
+                    try {
+                        val snapshot = withContext(Dispatchers.IO) {
+                            val profiles = SagerDatabase.proxyDao.getByGroup(groupId)
+                            when (order) {
+                                GroupOrder.BY_NAME -> profiles.sortedBy { it.displayName() }
+                                GroupOrder.BY_DELAY -> profiles.sortedBy { if (it.status == 1) it.ping else 114514 }
+                                else -> profiles
+                            }
+                        }
+                        if (!active() || proxyGroup.id != groupId) return@launch
+                        configurationList.clear()
+                        snapshot.filter { it.id !in hiddenIds }.forEach { profile ->
+                            reloadTraffic[profile.id]?.let { profile.rx = it.rx; profile.tx = it.tx }
+                            configurationList[profile.id] = profile
+                        }
+                        reloadTraffic.clear()
+                        configurationIdList.clear()
+                        configurationIdList.addAll(if (query.isEmpty()) {
+                            snapshot.map { it.id }.filter { it !in hiddenIds }
+                        } else configurationList.matchingIds(query))
+                        notifyDataSetChanged()
+                        val selectedProxy = withContext(Dispatchers.IO) { selectedId ?: DataStore.selectedProxy }
+                        if (!active()) return@launch
+                        val index = if (selected) configurationIdList.indexOf(selectedProxy) else -1
+                        if (index >= 0) configurationListView.scrollTo(index, true)
+                        else if (configurationIdList.isNotEmpty()) configurationListView.scrollTo(0, true)
+                    } catch (cancelled: CancellationException) { throw cancelled }
+                    catch (error: Exception) { Logs.w(error) }
                 }
             }
 
@@ -1488,9 +1523,13 @@ class ConfigurationFragment @JvmOverloads constructor(
             val removeButton: ImageView = view.findViewById(R.id.remove)
 
             fun bind(proxyEntity: ProxyEntity, trafficData: TrafficData? = null) {
-                val pf = parentFragment as? ConfigurationFragment ?: return
+                if (parentFragment !is ConfigurationFragment) return
 
                 entity = proxyEntity
+                view.visibility = View.VISIBLE
+                bindingGeneration++
+                val generation = bindingGeneration
+                bindingJob?.cancel()
 
                 if (select) {
                     view.setOnClickListener {
@@ -1506,7 +1545,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                                 lastSelected = DataStore.selectedProxy
                                 DataStore.selectedProxy = proxyEntity.id
                                 onMainDispatcher {
-                                    selectedView.visibility = View.VISIBLE
+                                    if (isBound(proxyEntity.id)) selectedView.visibility = View.VISIBLE
                                 }
                             }
 
@@ -1532,6 +1571,89 @@ class ConfigurationFragment @JvmOverloads constructor(
                 profileType.text = proxyEntity.displayType()
                 profileType.setTextColor(requireContext().getProtocolColor(proxyEntity.type))
 
+                renderTraffic(proxyEntity, trafficData)
+
+                editButton.setOnClickListener {
+                    it.context.startActivity(
+                        proxyEntity.settingIntent(
+                            it.context, proxyGroup.type == GroupType.SUBSCRIPTION
+                        )
+                    )
+                }
+
+                jsonButton.isGone = select
+                val jsonEnabled = io.nekohasekai.sagernet.fmt.NodeJson.enabled(proxyEntity.requireBean())
+                jsonButton.alpha = if (jsonEnabled) 1f else 0.65f
+                jsonButton.contentDescription = getString(if (jsonEnabled) R.string.json_manage_active else R.string.json_manage)
+                jsonButton.setOnClickListener {
+                    io.nekohasekai.sagernet.ui.profile.NodeJsonMenu.show(requireActivity(), it, proxyEntity.id)
+                }
+
+                removeButton.setOnClickListener {
+                    adapter?.let {
+                        val index = it.configurationIdList.indexOf(proxyEntity.id)
+                        it.remove(index)
+                        undoManager.remove(index to proxyEntity)
+                    }
+                }
+
+                val selectOrChain = select || proxyEntity.type == ProxyEntity.TYPE_CHAIN
+                shareLayout.isGone = selectOrChain
+                editButton.isGone = select
+                removeButton.isGone = select
+
+                proxyEntity.nekoBean?.apply {
+                    shareLayout.isGone = true
+                }
+
+                bindingJob = viewLifecycleOwner.lifecycleScope.launch {
+                    val selectedId = selectedItem?.id
+                    val selection = withContext(Dispatchers.IO) {
+                        val selected = (selectedId ?: DataStore.selectedProxy) == proxyEntity.id
+                        selected to (selected && DataStore.serviceState.started && DataStore.currentProfile == proxyEntity.id)
+                    }
+                    if (generation != bindingGeneration || !isBound(proxyEntity.id)) return@launch
+                    editButton.isEnabled = !selection.second
+                    removeButton.isEnabled = !selection.second
+                    selectedView.visibility = if (selection.first) View.VISIBLE else View.INVISIBLE
+                }
+
+                fun showShare(anchor: View) {
+                    if (!isBound(proxyEntity.id)) return
+                    val popup = PopupMenu(requireContext(), anchor)
+                    popup.menuInflater.inflate(R.menu.profile_share_menu, popup.menu)
+                    when {
+                        !proxyEntity.haveStandardLink() -> {
+                            popup.menu.findItem(R.id.action_group_qr).subMenu?.removeItem(R.id.action_standard_qr)
+                            popup.menu.findItem(R.id.action_group_clipboard).subMenu?.removeItem(R.id.action_standard_clipboard)
+                        }
+                        !proxyEntity.haveLink() -> {
+                            popup.menu.removeItem(R.id.action_group_qr)
+                            popup.menu.removeItem(R.id.action_group_clipboard)
+                        }
+                    }
+                    if (proxyEntity.nekoBean != null) popup.menu.removeItem(R.id.action_group_configuration)
+                    popup.setOnMenuItemClickListener { item ->
+                        if (isBound(proxyEntity.id)) onMenuItemClick(item) else false
+                    }
+                    popup.show()
+                }
+                if (!(select || proxyEntity.type == ProxyEntity.TYPE_CHAIN)) {
+                    shareLayer.setBackgroundColor(Color.TRANSPARENT)
+                    shareButton.setImageResource(R.drawable.ic_social_share)
+                    shareButton.setColorFilter(Color.GRAY)
+                    shareButton.isVisible = true
+                    shareLayout.setOnClickListener { showShare(it) }
+                }
+            }
+
+            fun bindTraffic(data: TrafficData) {
+                if (!isBound(data.id)) return
+                renderTraffic(entity, data)
+            }
+
+            private fun renderTraffic(proxyEntity: ProxyEntity, trafficData: TrafficData?) {
+                val pf = parentFragment as? ConfigurationFragment ?: return
                 var rx = proxyEntity.rx
                 var tx = proxyEntity.tx
                 if (trafficData != null) {
@@ -1592,89 +1714,21 @@ class ConfigurationFragment @JvmOverloads constructor(
                     profileStatus.setOnClickListener(null)
                 }
 
-                editButton.setOnClickListener {
-                    it.context.startActivity(
-                        proxyEntity.settingIntent(
-                            it.context, proxyGroup.type == GroupType.SUBSCRIPTION
-                        )
-                    )
-                }
+            }
 
-                jsonButton.isGone = select
-                val jsonEnabled = io.nekohasekai.sagernet.fmt.NodeJson.enabled(proxyEntity.requireBean())
-                jsonButton.alpha = if (jsonEnabled) 1f else 0.65f
-                jsonButton.contentDescription = getString(if (jsonEnabled) R.string.json_manage_active else R.string.json_manage)
-                jsonButton.setOnClickListener {
-                    io.nekohasekai.sagernet.ui.profile.NodeJsonMenu.show(requireActivity(), it, proxyEntity.id)
-                }
+            private var bindingJob: Job? = null
+            private var bindingGeneration = 0L
 
-                removeButton.setOnClickListener {
-                    adapter?.let {
-                        val index = it.configurationIdList.indexOf(proxyEntity.id)
-                        it.remove(index)
-                        undoManager.remove(index to proxyEntity)
-                    }
-                }
+            private fun isBound(id: Long) = ::entity.isInitialized && entity.id == id &&
+                bindingAdapterPosition != RecyclerView.NO_POSITION &&
+                adapter?.configurationIdList?.getOrNull(bindingAdapterPosition) == id
 
-                val selectOrChain = select || proxyEntity.type == ProxyEntity.TYPE_CHAIN
-                shareLayout.isGone = selectOrChain
-                editButton.isGone = select
-                removeButton.isGone = select
-
-                proxyEntity.nekoBean?.apply {
-                    shareLayout.isGone = true
-                }
-
-                runOnDefaultDispatcher {
-                    val selected = (selectedItem?.id ?: DataStore.selectedProxy) == proxyEntity.id
-                    val started =
-                        selected && DataStore.serviceState.started && DataStore.currentProfile == proxyEntity.id
-                    onMainDispatcher {
-                        editButton.isEnabled = !started
-                        removeButton.isEnabled = !started
-                        selectedView.visibility = if (selected) View.VISIBLE else View.INVISIBLE
-                    }
-
-                    fun showShare(anchor: View) {
-                        val popup = PopupMenu(requireContext(), anchor)
-                        popup.menuInflater.inflate(R.menu.profile_share_menu, popup.menu)
-
-                        when {
-                            !proxyEntity.haveStandardLink() -> {
-                                popup.menu.findItem(R.id.action_group_qr).subMenu?.removeItem(R.id.action_standard_qr)
-                                popup.menu.findItem(R.id.action_group_clipboard).subMenu?.removeItem(
-                                    R.id.action_standard_clipboard
-                                )
-                            }
-
-                            !proxyEntity.haveLink() -> {
-                                popup.menu.removeItem(R.id.action_group_qr)
-                                popup.menu.removeItem(R.id.action_group_clipboard)
-                            }
-                        }
-
-                        if (proxyEntity.nekoBean != null) {
-                            popup.menu.removeItem(R.id.action_group_configuration)
-                        }
-
-                        popup.setOnMenuItemClickListener(this@ConfigurationHolder)
-                        popup.show()
-                    }
-
-                    if (!(select || proxyEntity.type == ProxyEntity.TYPE_CHAIN)) {
-                        onMainDispatcher {
-                            shareLayer.setBackgroundColor(Color.TRANSPARENT)
-                            shareButton.setImageResource(R.drawable.ic_social_share)
-                            shareButton.setColorFilter(Color.GRAY)
-                            shareButton.isVisible = true
-
-                            shareLayout.setOnClickListener {
-                                showShare(it)
-                            }
-                        }
-                    }
-                }
-
+            fun unbind() {
+                bindingGeneration++
+                bindingJob?.cancel()
+                bindingJob = null
+                view.visibility = View.INVISIBLE
+                view.setOnClickListener(null)
             }
 
             var currentName = ""

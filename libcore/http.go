@@ -10,29 +10,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"libcore/ech"
-	"net"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
-	"strconv"
-	"sync"
 	"time"
-
-	"github.com/sagernet/quic-go"
-	"github.com/sagernet/quic-go/http3"
-	"github.com/sagernet/sing/common/metadata"
-	"github.com/sagernet/sing/protocol/socks"
-	"github.com/sagernet/sing/protocol/socks/socks5"
 )
-
-var errFailConnectSocks5 = errors.New("fail connect socks5")
-
-// Full in-memory content is used by subscriptions/configuration. Asset writes
-// remain streaming and have a separate, much larger disk quota.
-const maxHTTPContentBytes int64 = 32 << 20
-const maxHTTPFileBytes int64 = 512 << 20
 
 type HTTPClient interface {
 	SetTimeout(milliseconds int32)
@@ -76,11 +57,25 @@ type httpClient struct {
 	h1h2Transport http.Transport
 	h1h2Client    http.Client
 	trySocks5     bool
+	requireSocks5 bool
 	tryH3Direct   bool
 	timeout       time.Duration
 }
 
 func NewHttpClient() HTTPClient {
+	return newHTTPClient()
+}
+
+// NewSocks5OnlyHttpClient creates a client for requests that must never dial
+// the origin directly, including when the proxy fails or the request redirects.
+func NewSocks5OnlyHttpClient(port int32) HTTPClient {
+	client := newHTTPClient()
+	client.requireSocks5 = true
+	client.TrySocks5(port)
+	return client
+}
+
+func newHTTPClient() *httpClient {
 	client := &httpClient{timeout: 30 * time.Second}
 	client.h1h2Client.Transport = &client.h1h2Transport
 	client.h1h2Transport.TLSClientConfig = &client.tls
@@ -125,46 +120,6 @@ func (c *httpClient) PinnedSHA256(sumHex string) {
 	}
 }
 
-func (c *httpClient) TrySocks5(port int32) {
-	dialer := new(net.Dialer)
-	c.h1h2Transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-		for {
-			socksConn, err := dialer.DialContext(ctx, "tcp", "127.0.0.1:"+strconv.Itoa(int(port)))
-			if err != nil {
-				if c.tryH3Direct {
-					return nil, errFailConnectSocks5
-				}
-				break
-			}
-			if deadline, ok := ctx.Deadline(); ok {
-				_ = socksConn.SetDeadline(deadline)
-			}
-			stopCancel := context.AfterFunc(ctx, func() { _ = socksConn.Close() })
-			_, err = socks.ClientHandshake5(socksConn, socks5.CommandConnect, metadata.ParseSocksaddr(addr), "", "")
-			stopCancel()
-			if ctx.Err() != nil {
-				socksConn.Close()
-				return nil, ctx.Err()
-			}
-			if err != nil {
-				socksConn.Close()
-				if c.tryH3Direct {
-					return nil, errFailConnectSocks5
-				}
-				break
-			}
-			_ = socksConn.SetDeadline(time.Time{})
-			return socksConn, err
-		}
-		return dialer.DialContext(ctx, network, addr)
-	}
-	c.trySocks5 = true
-}
-
-func (c *httpClient) TryH3Direct() {
-	c.tryH3Direct = true
-}
-
 func (c *httpClient) KeepAlive() {
 	c.h1h2Transport.ForceAttemptHTTP2 = true
 	c.h1h2Transport.DisableKeepAlives = false
@@ -196,6 +151,9 @@ func (r *httpRequest) AllowInsecure() {
 func (r *httpRequest) SetURL(link string) (err error) {
 	r.request.URL, err = url.Parse(link)
 	if err != nil {
+		if r.requireSocks5 {
+			return errors.New("Invalid HTTP URL for SOCKS5 proxy request")
+		}
 		return
 	}
 	if r.request.URL.User != nil {
@@ -239,7 +197,11 @@ func (r *httpRequest) Execute() (result HTTPResponse, err error) {
 				cancel()
 			}
 			result = nil
-			err = fmt.Errorf("HTTP request panic: %v", value)
+			if r.requireSocks5 {
+				err = errors.New("Request through SOCKS5 proxy failed")
+			} else {
+				err = fmt.Errorf("HTTP request panic: %v", value)
+			}
 		}
 	}()
 	if r.request.URL == nil || (r.request.URL.Scheme != "http" && r.request.URL.Scheme != "https") {
@@ -257,14 +219,30 @@ func (r *httpRequest) Execute() (result HTTPResponse, err error) {
 		client = &http.Client{Transport: transport}
 		cleanup = transport.CloseIdleConnections
 	}
-	if r.tryH3Direct && !r.trySocks5 {
+	allowH3Direct := r.tryH3Direct && !r.requireSocks5
+	if allowH3Direct && !r.trySocks5 {
 		result, err = r.doH3Direct(ctx)
 	} else {
 		var response *http.Response
 		response, err = client.Do(request)
-		if err != nil && r.tryH3Direct && errors.Is(err, errFailConnectSocks5) {
+		switch {
+		case err != nil && allowH3Direct && errors.Is(err, errFailConnectSocks5):
 			result, err = r.doH3Direct(ctx)
-		} else if err == nil {
+		case err != nil && r.requireSocks5:
+			// net/http wraps failures in a URL error that may include a subscription token.
+			switch {
+			case errors.Is(err, context.DeadlineExceeded):
+				err = errors.New("Request through SOCKS5 proxy timed out")
+			case errors.Is(err, errFailConnectSocks5):
+				err = errRequiredSocks5
+			default:
+				err = errors.New("Request through SOCKS5 proxy failed")
+			}
+		case err == nil && r.requireSocks5 && response.StatusCode != http.StatusOK:
+			// An error response can echo request credentials.
+			response.Body.Close()
+			err = fmt.Errorf("HTTP status %d through SOCKS5 proxy", response.StatusCode)
+		case err == nil:
 			result, err = checkedHTTPResponse(response)
 		}
 	}
@@ -286,167 +264,4 @@ func (r *httpRequest) Execute() (result HTTPResponse, err error) {
 		}
 	}}
 	return response, nil
-}
-func checkedHTTPResponse(response *http.Response) (HTTPResponse, error) {
-	if response == nil {
-		return nil, errors.New("HTTP transport produced no response")
-	}
-	result := &httpResponse{Response: response}
-	if response.StatusCode != http.StatusOK {
-		return nil, errors.New(result.errorString())
-	}
-	return result, nil
-}
-func (r *httpRequest) doH3Direct(ctx context.Context) (HTTPResponse, error) {
-	tlsConfig := r.tls.Clone()
-	tlsConfig.InsecureSkipVerify = r.allowInsecure
-	attempts := []httpAttempt{
-		func(ctx context.Context) (*http.Response, error, func()) {
-			transport := &http.Transport{DisableKeepAlives: true, DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				var d net.Dialer
-				conn, err := d.DialContext(ctx, network, addr)
-				if err != nil {
-					return nil, err
-				}
-				domain, _, err := net.SplitHostPort(addr)
-				if err != nil {
-					domain = addr
-				}
-				config := ech.NewECHClientConfig(domain, tlsConfig, gLocalDNSTransport)
-				tlsConn, err := config.Client(ctx, conn)
-				if err != nil {
-					conn.Close()
-					return nil, err
-				}
-				if err = tlsConn.HandshakeContext(ctx); err != nil {
-					tlsConn.Close()
-					return nil, err
-				}
-				return tlsConn, nil
-			}}
-			request, err := r.cloneAttempt(ctx)
-			if err != nil {
-				return nil, err, transport.CloseIdleConnections
-			}
-			response, err := (&http.Client{Transport: transport}).Do(request)
-			return response, err, transport.CloseIdleConnections
-		},
-		func(ctx context.Context) (*http.Response, error, func()) {
-			transport := &http3.Transport{TLSClientConfig: tlsConfig.Clone(), QUICConfig: &quic.Config{MaxIdleTimeout: time.Second}}
-			cleanup := func() { _ = transport.Close() }
-			request, err := r.cloneAttempt(ctx)
-			if err != nil {
-				return nil, err, cleanup
-			}
-			response, err := (&http.Client{Transport: transport}).Do(request)
-			return response, err, cleanup
-		},
-	}
-	if r.request.URL.Scheme == "http" {
-		attempts = attempts[:1]
-	}
-	response, err := raceHTTPAttempts(ctx, attempts)
-	if err != nil {
-		return nil, err
-	}
-	return checkedHTTPResponse(response)
-}
-func (r *httpRequest) cloneAttempt(ctx context.Context) (*http.Request, error) {
-	request := r.request.Clone(ctx)
-	if r.request.Body != nil {
-		if r.request.GetBody == nil {
-			return nil, errors.New("HTTP request body cannot be replayed")
-		}
-		body, err := r.request.GetBody()
-		if err != nil {
-			return nil, err
-		}
-		request.Body = body
-	}
-	return request, nil
-}
-
-type httpResponse struct {
-	*http.Response
-
-	getContentOnce sync.Once
-	content        []byte
-	contentError   error
-}
-
-func (h *httpResponse) errorString() string {
-	content, err := h.getContentString()
-	if err != nil {
-		return fmt.Sprint("HTTP ", h.Status)
-	}
-	if len(content) > 100 {
-		content = content[:100] + " ..."
-	}
-	return fmt.Sprint("HTTP ", h.Status, ": ", content)
-}
-
-func (h *httpResponse) GetHeader(key string) *StringBox {
-	return wrapString(h.Header.Get(key))
-}
-
-func (h *httpResponse) GetContent() ([]byte, error) {
-	h.getContentOnce.Do(func() {
-		defer h.Body.Close()
-		if h.ContentLength > maxHTTPContentBytes {
-			h.contentError = errors.New("HTTP response exceeds 32 MiB in-memory limit")
-			return
-		}
-		h.content, h.contentError = io.ReadAll(io.LimitReader(h.Body, maxHTTPContentBytes+1))
-		if h.contentError == nil && int64(len(h.content)) > maxHTTPContentBytes {
-			h.contentError = errors.New("HTTP response exceeds 32 MiB in-memory limit")
-		}
-		if h.contentError != nil {
-			h.content = nil
-		}
-	})
-	return h.content, h.contentError
-}
-
-func (h *httpResponse) GetContentString() (*StringBox, error) {
-	content, err := h.getContentString()
-	if err != nil {
-		return nil, err
-	}
-	return wrapString(content), nil
-}
-
-func (h *httpResponse) getContentString() (string, error) {
-	content, err := h.GetContent()
-	if err != nil {
-		return "", err
-	}
-	return string(content), nil
-}
-
-func (h *httpResponse) WriteTo(path string) error {
-	defer h.Body.Close()
-	if h.ContentLength > maxHTTPFileBytes {
-		return errors.New("HTTP asset exceeds 512 MiB download limit")
-	}
-	// A failed or over-quota update must not truncate the existing asset.
-	file, err := os.CreateTemp(filepath.Dir(path), ".http-download-*")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(file.Name())
-	defer file.Close()
-	n, err := io.Copy(file, io.LimitReader(h.Body, maxHTTPFileBytes+1))
-	if err != nil {
-		return err
-	}
-	if n > maxHTTPFileBytes {
-		return errors.New("HTTP asset exceeds 512 MiB download limit")
-	}
-	if err = file.Sync(); err != nil {
-		return err
-	}
-	if err = file.Close(); err != nil {
-		return err
-	}
-	return os.Rename(file.Name(), path)
 }

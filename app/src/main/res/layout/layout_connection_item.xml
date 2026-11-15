@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="vertical" android:minHeight="72dp" android:gravity="center_vertical"
+    android:paddingStart="16dp" android:paddingEnd="16dp" android:paddingTop="10dp"
+    android:paddingBottom="10dp" android:background="?attr/selectableItemBackground"
+    android:focusable="true" android:clickable="true">
+    <TextView android:id="@+id/connection_target" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
+    <TextView android:id="@+id/connection_protocol" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:textAppearance="?android:attr/textAppearanceSmall"
+        android:textColor="?android:attr/textColorSecondary" />
+    <TextView android:id="@+id/connection_traffic" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:textAppearance="?android:attr/textAppearanceSmall"
+        android:textColor="?android:attr/textColorSecondary" />
+</LinearLayout>

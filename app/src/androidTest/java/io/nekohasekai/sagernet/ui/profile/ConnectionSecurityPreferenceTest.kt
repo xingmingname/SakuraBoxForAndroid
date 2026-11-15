@@ -1,18 +1,99 @@
 package io.nekohasekai.sagernet.ui.profile
 
+import android.content.Intent
+import android.os.SystemClock
 import android.test.InstrumentationTestCase
 import android.view.ContextThemeWrapper
+import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
+import androidx.preference.SwitchPreference
 import androidx.preference.PreferenceDataStore
 import androidx.preference.PreferenceManager
 import io.nekohasekai.sagernet.fmt.ConnectionSecurity
+import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.database.ProxyEntity
+import io.nekohasekai.sagernet.database.ProxyGroup
+import io.nekohasekai.sagernet.database.SagerDatabase
+import io.nekohasekai.sagernet.fmt.ProtocolOptions
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.parseV2Ray
 import io.nekohasekai.sagernet.fmt.v2ray.toUriVMessVLESSTrojan
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
+import moe.matsuri.nb4a.proxy.anytls.AnyTLSSettingsActivity
 
 @Suppress("DEPRECATION")
 class ConnectionSecurityPreferenceTest : InstrumentationTestCase() {
+
+    fun testAnyTlsEchSwitchSavesAndReopensWithPem() = runBlocking {
+        assertTrue(BuildConfig.DEBUG)
+        val group = ProxyGroup(name = "instrumentation-anytls-ech-${System.nanoTime()}")
+        group.id = SagerDatabase.groupDao.createGroup(group)
+        val pem = "-----BEGIN ECH CONFIGS-----\nsynthetic\n-----END ECH CONFIGS-----"
+        val bean = AnyTLSBean().apply {
+            initializeDefaultValues()
+            serverAddress = "example.invalid"
+            serverPort = 443
+            echConfig = pem
+        }
+        val id = SagerDatabase.proxyDao.addProxy(ProxyEntity(groupId = group.id).putBean(bean))
+        var activity: AnyTLSSettingsActivity? = null
+        fun open(): AnyTLSSettingsActivity {
+            val intent = Intent(instrumentation.targetContext, AnyTLSSettingsActivity::class.java)
+                .putExtra(ProfileSettingsActivity.EXTRA_PROFILE_ID, id)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val editor = instrumentation.startActivitySync(intent) as AnyTLSSettingsActivity
+            val deadline = SystemClock.uptimeMillis() + 10_000
+            while (SystemClock.uptimeMillis() < deadline) {
+                var ready = false
+                instrumentation.runOnMainSync {
+                    val fragment = editor.supportFragmentManager.findFragmentById(R.id.settings) as? ProfileSettingsActivity.MyPreferenceFragmentCompat
+                    ready = fragment?.findPreference<SwitchPreference>("enableECH")?.onPreferenceChangeListener != null
+                }
+                if (ready) return editor
+                SystemClock.sleep(20)
+            }
+            error("AnyTLS ECH editor did not initialize")
+        }
+        try {
+            val editor = open()
+            activity = editor
+            instrumentation.runOnMainSync {
+                val toggle = editor.child.findPreference<SwitchPreference>("enableECH")!!
+                assertTrue(toggle.isChecked)
+                assertTrue(toggle.callChangeListener(false))
+                toggle.isChecked = false
+                val security = editor.child.findPreference<ListPreference>("connectionSecurity")!!
+                assertTrue(security.callChangeListener("reality"))
+                assertFalse(toggle.isVisible)
+                assertTrue(security.callChangeListener("tls"))
+                assertTrue(toggle.isVisible)
+                assertFalse(toggle.isChecked)
+            }
+            withContext(Dispatchers.Default) { editor.saveAndExit() }
+            instrumentation.waitForIdleSync()
+            assertTrue(editor.isFinishing)
+            val saved = SagerDatabase.proxyDao.getById(id)!!.requireBean() as AnyTLSBean
+            assertEquals(pem, saved.echConfig)
+            assertEquals(false, ProtocolOptions.get(ProtocolOptions.parse(saved.protocolOptionsJson), "tls.ech.enabled")!!.asBoolean)
+
+            val reopened = open()
+            activity = reopened
+            instrumentation.runOnMainSync {
+                assertFalse(reopened.child.findPreference<SwitchPreference>("enableECH")!!.isChecked)
+                assertEquals(pem, reopened.child.findPreference<EditTextPreference>("echConfig")!!.text)
+            }
+        } finally {
+            activity?.let { editor -> instrumentation.runOnMainSync { editor.finish() } }
+            instrumentation.waitForIdleSync()
+            SagerDatabase.proxyDao.deleteByGroup(group.id)
+            SagerDatabase.groupDao.deleteGroup(group)
+        }
+    }
+
     fun testSecurityMenusCanInflateBeforeDynamicModeBinding() = instrumentation.runOnMainSync {
         val context = ContextThemeWrapper(instrumentation.targetContext, androidx.appcompat.R.style.Theme_AppCompat)
         for (xml in listOf(R.xml.standard_v2ray_preferences, R.xml.anytls_preferences)) {

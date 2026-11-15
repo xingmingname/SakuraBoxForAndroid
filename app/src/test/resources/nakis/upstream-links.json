@@ -1,0 +1,194 @@
+[
+  {
+    "id": "plain",
+    "name": "明文 + 节点",
+    "link": "nakis://6c1c4a52-3b8e-4d9a-9a52-0d4f5f0f7a11@127.0.0.1:8443?v=1&tls=0&uses=0&cc=reno#%E6%98%8E%E6%96%87%20+%20%E8%8A%82%E7%82%B9",
+    "client": {
+      "listen": "127.0.0.1:1080",
+      "server": "127.0.0.1:8443",
+      "uuid": "6c1c4a52-3b8e-4d9a-9a52-0d4f5f0f7a11",
+      "race_count": 3,
+      "dial_timeout": "8s",
+      "handshake_timeout": "10s",
+      "pool_lo": 2,
+      "pool_hi": 32,
+      "pool_max_age": "45s",
+      "pool_max_uses": 0,
+      "keepalive": "15s",
+      "log_level": "info",
+      "congestion": "reno",
+      "send_pack": 20480,
+      "send_tail": 512,
+      "send_quiet": 4,
+      "shape_up": null,
+      "shape_wait": "20ms",
+      "tls": false,
+      "sni": "",
+      "tls_pins": null,
+      "ech_config": ""
+    }
+  },
+  {
+    "id": "tls",
+    "name": "普通 TLS",
+    "link": "nakis://6c1c4a52-3b8e-4d9a-9a52-0d4f5f0f7a11@nakis.test:443?v=1&sni=nakis.test#%E6%99%AE%E9%80%9A%20TLS",
+    "client": {
+      "listen": "127.0.0.1:1080",
+      "server": "nakis.test:443",
+      "uuid": "6c1c4a52-3b8e-4d9a-9a52-0d4f5f0f7a11",
+      "race_count": 3,
+      "dial_timeout": "8s",
+      "handshake_timeout": "10s",
+      "pool_lo": 2,
+      "pool_hi": 32,
+      "pool_max_age": "45s",
+      "pool_max_uses": 8,
+      "keepalive": "15s",
+      "log_level": "info",
+      "congestion": "",
+      "send_pack": 20480,
+      "send_tail": 512,
+      "send_quiet": 4,
+      "shape_up": null,
+      "shape_wait": "20ms",
+      "tls": true,
+      "sni": "nakis.test",
+      "tls_pins": null,
+      "ech_config": ""
+    }
+  },
+  {
+    "id": "pin",
+    "name": "自签 pin",
+    "link": "nakis://6c1c4a52-3b8e-4d9a-9a52-0d4f5f0f7a11@203.0.113.7:8443?v=1&pin=e4fb25082debe0d077eedb7a2283b2433961d997ee335a7f5ac7fc04badcd162#%E8%87%AA%E7%AD%BE%20pin",
+    "client": {
+      "listen": "127.0.0.1:1080",
+      "server": "203.0.113.7:8443",
+      "uuid": "6c1c4a52-3b8e-4d9a-9a52-0d4f5f0f7a11",
+      "race_count": 3,
+      "dial_timeout": "8s",
+      "handshake_timeout": "10s",
+      "pool_lo": 2,
+      "pool_hi": 32,
+      "pool_max_age": "45s",
+      "pool_max_uses": 8,
+      "keepalive": "15s",
+      "log_level": "info",
+      "congestion": "",
+      "send_pack": 20480,
+      "send_tail": 512,
+      "send_quiet": 4,
+      "shape_up": null,
+      "shape_wait": "20ms",
+      "tls": true,
+      "sni": "",
+      "tls_pins": [
+        "e4fb25082debe0d077eedb7a2283b2433961d997ee335a7f5ac7fc04badcd162"
+      ],
+      "ech_config": ""
+    }
+  },
+  {
+    "id": "ech",
+    "name": "ECH + 中文",
+    "link": "nakis://6c1c4a52-3b8e-4d9a-9a52-0d4f5f0f7a11@nakis.test:443?v=1&sni=nakis.test&pin=e4fb25082debe0d077eedb7a2283b2433961d997ee335a7f5ac7fc04badcd162&ech=AEj-DQBEAQAgACBb4ZwoOy3EchNGRNikx0h_R3Yfb-OXu275JLU_vve6MAAIAAEAAQABAANAEXB1YmxpYy5uYWtpcy50ZXN0AAA#ECH%20+%20%E4%B8%AD%E6%96%87",
+    "client": {
+      "listen": "127.0.0.1:1080",
+      "server": "nakis.test:443",
+      "uuid": "6c1c4a52-3b8e-4d9a-9a52-0d4f5f0f7a11",
+      "race_count": 3,
+      "dial_timeout": "8s",
+      "handshake_timeout": "10s",
+      "pool_lo": 2,
+      "pool_hi": 32,
+      "pool_max_age": "45s",
+      "pool_max_uses": 8,
+      "keepalive": "15s",
+      "log_level": "info",
+      "congestion": "",
+      "send_pack": 20480,
+      "send_tail": 512,
+      "send_quiet": 4,
+      "shape_up": null,
+      "shape_wait": "20ms",
+      "tls": true,
+      "sni": "nakis.test",
+      "tls_pins": [
+        "e4fb25082debe0d077eedb7a2283b2433961d997ee335a7f5ac7fc04badcd162"
+      ],
+      "ech_config": "AEj+DQBEAQAgACBb4ZwoOy3EchNGRNikx0h/R3Yfb+OXu275JLU/vve6MAAIAAEAAQABAANAEXB1YmxpYy5uYWtpcy50ZXN0AAA="
+    }
+  },
+  {
+    "id": "advanced",
+    "name": "东京 1 号 + / % # &",
+    "link": "nakis://6c1c4a52-3b8e-4d9a-9a52-0d4f5f0f7a11@[2001:db8::1]:443?v=1&sni=nakis.test&pin=e4fb25082debe0d077eedb7a2283b2433961d997ee335a7f5ac7fc04badcd162,abababababababababababababababababababababababababababababababab&ech=AEj-DQBEAQAgACBb4ZwoOy3EchNGRNikx0h_R3Yfb-OXu275JLU_vve6MAAIAAEAAQABAANAEXB1YmxpYy5uYWtpcy50ZXN0AAA&alt=198.51.100.4:8443,[2001:db8::2]:9443,backup.test:8443&shape=100-300,400-1200&race=7&pool=3-40&uses=0&age=30s&ka=1m1.5s&cc=bbr&pack=16000&tail=0&quiet=0&wait=100%C2%B5s#%E4%B8%9C%E4%BA%AC%201%20%E5%8F%B7%20+%20%2F%20%25%20%23%20&",
+    "client": {
+      "listen": "127.0.0.1:1080",
+      "server": "[2001:db8::1]:443,198.51.100.4:8443,[2001:db8::2]:9443,backup.test:8443",
+      "uuid": "6c1c4a52-3b8e-4d9a-9a52-0d4f5f0f7a11",
+      "race_count": 7,
+      "dial_timeout": "8s",
+      "handshake_timeout": "10s",
+      "pool_lo": 3,
+      "pool_hi": 40,
+      "pool_max_age": "30s",
+      "pool_max_uses": 0,
+      "keepalive": "1m1.5s",
+      "log_level": "info",
+      "congestion": "bbr",
+      "send_pack": 16000,
+      "send_tail": 0,
+      "send_quiet": 0,
+      "shape_up": [
+        [
+          100,
+          300
+        ],
+        [
+          400,
+          1200
+        ]
+      ],
+      "shape_wait": "100µs",
+      "tls": true,
+      "sni": "nakis.test",
+      "tls_pins": [
+        "e4fb25082debe0d077eedb7a2283b2433961d997ee335a7f5ac7fc04badcd162",
+        "abababababababababababababababababababababababababababababababab"
+      ],
+      "ech_config": "AEj+DQBEAQAgACBb4ZwoOy3EchNGRNikx0h/R3Yfb+OXu275JLU/vve6MAAIAAEAAQABAANAEXB1YmxpYy5uYWtpcy50ZXN0AAA="
+    }
+  },
+  {
+    "id": "server-pin",
+    "name": "服务端分享",
+    "link": "nakis://6c1c4a52-3b8e-4d9a-9a52-0d4f5f0f7a11@203.0.113.7:8443?v=1&sni=nakis.test&pin=e4fb25082debe0d077eedb7a2283b2433961d997ee335a7f5ac7fc04badcd162#%E6%9C%8D%E5%8A%A1%E7%AB%AF%E5%88%86%E4%BA%AB",
+    "client": {
+      "listen": "127.0.0.1:1080",
+      "server": "203.0.113.7:8443",
+      "uuid": "6c1c4a52-3b8e-4d9a-9a52-0d4f5f0f7a11",
+      "race_count": 3,
+      "dial_timeout": "8s",
+      "handshake_timeout": "10s",
+      "pool_lo": 2,
+      "pool_hi": 32,
+      "pool_max_age": "45s",
+      "pool_max_uses": 8,
+      "keepalive": "15s",
+      "log_level": "info",
+      "congestion": "",
+      "send_pack": 20480,
+      "send_tail": 512,
+      "send_quiet": 4,
+      "shape_up": null,
+      "shape_wait": "20ms",
+      "tls": true,
+      "sni": "nakis.test",
+      "tls_pins": [
+        "e4fb25082debe0d077eedb7a2283b2433961d997ee335a7f5ac7fc04badcd162"
+      ],
+      "ech_config": ""
+    }
+  }
+]

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nakis_uuid">UUID</string>
+    <string name="nakis_security">传输安全</string>
+    <string name="nakis_tls">TLS</string>
+    <string name="nakis_default">默认（启用）</string>
+    <string name="nakis_on">启用</string>
+    <string name="nakis_off">关闭</string>
+    <string name="nakis_sni">服务器名称（SNI）</string>
+    <string name="nakis_tls_pins">公钥指纹（SHA-256 十六进制）</string>
+    <string name="nakis_ech">ECH 配置（Base64）</string>
+    <string name="nakis_advanced">Nakis 高级设置</string>
+    <string name="nakis_alternates">备用服务器</string>
+    <string name="nakis_pool_lo">最少空闲隧道数</string>
+    <string name="nakis_pool_hi">最多空闲隧道数</string>
+    <string name="nakis_pool_max_uses">每条隧道会话数</string>
+    <string name="nakis_pool_max_age">空闲隧道寿命</string>
+    <string name="nakis_race_count">并发拨号候选数</string>
+    <string name="nakis_dial_timeout">拨号超时</string>
+    <string name="nakis_handshake_timeout">握手超时</string>
+    <string name="nakis_keepalive">TCP 保活</string>
+    <string name="nakis_send_pack">目标帧大小</string>
+    <string name="nakis_send_tail">帧合并余量</string>
+    <string name="nakis_send_quiet">合包等待窗口（毫秒）</string>
+    <string name="nakis_shape_up">上行整形区间</string>
+    <string name="nakis_shape_wait">整形超时</string>
+    <string name="nakis_congestion">TCP 拥塞控制</string>
+    <string name="nakis_pool_limits">最少空闲隧道数为 1–1024。最多空闲隧道数至少比最少值大 1，且不超过 4096。</string>
+    <string name="nakis_race_scope">配置了多个服务器地址且没有可用空闲隧道时生效。</string>
+    <string name="nakis_keepalive_scope">适用于 Nakis 直接建立的 TCP 套接字。使用链式代理时，由下层出站管理其 TCP 套接字。</string>
+    <string name="nakis_congestion_scope">适用于支持所选算法的 Linux 内核上的直拨 TCP 套接字。算法不可用时使用系统默认值。</string>
+    <string name="nakis_half_close_timeout">TCP 半关闭空闲超时</string>
+    <string name="nakis_udp_jitter">UDP 时序扰动</string>
+    <string name="nakis_udp_jitter_help">仅适用于 UDP over TCP。输入 0s 可关闭时序扰动，最大 200ms。</string>
+</resources>

@@ -3,6 +3,12 @@
 当前测试候选：应用 `1.0.3-beta.1`（versionCode 245），核心 `1.14.3-sakura`。
 测试发布预定 Tag 为 `v1.0.3-beta.1`，仅使用 Pre-release 和现有 Debug 安装包，不替换正式版 `v1.0.2`。本文不代表已发布。
 
+## Nakis 客户端配置与测试
+
+Android 和 Go 从同一份核心构建 Nakis、Sudoku、连接监控与流量统计。Nakis 适配以 n-yarvex/nakis 的固定提交 `33eb35178ad6c6774144baf562f589d612578603` 为准。运行 Nakis 互通测试时，将 `NAKIS_ORACLE` 指向该提交构建的上游可执行文件。用 `NAKIS_LEGACY_ORACLE` 指定旧服务端基线 `40ce887879cdfc00cd74c52f88a24da7c1a1be00`，验证 UoT 拒绝行为。
+
+Room 7→8 为 Nakis 节点添加可空列。原有 Sudoku AAR 可以继续留在本地作为历史构建输入。
+
 ## Sudoku 客户端配置与核心选择
 
 Sudoku outbound 随固定的 sing-box v1.14.3 和既有 SakuraBox 补丁构建，不替换整个核心。
@@ -15,7 +21,7 @@ Sudoku outbound 随固定的 sing-box v1.14.3 和既有 SakuraBox 补丁构建�
 内部 JSON 支持 Sudoku，面向官方 sing-box 的导出仍拒绝该扩展协议。
 已知限制：legacy `http_mask_strategy=post` 沿用固定 Fork 的行为，没有独立模式；嵌套 HTTPMask 整体优先于 legacy。
 
-Android 默认只引用 `app/libs/libcore-sing-box-1.14.3-sakura-sudoku.aar`，也可使用 `-PnekoCoreAar=<已验证的本地 AAR>`。
+Android 默认只引用 `app/libs/libcore-sing-box-1.14.3-sakura-with_nakis.aar`，也可使用 `-PnekoCoreAar=<已验证的本地 AAR>`。
 核心构建脚本和离线脚本使用同一个输出名。旧 sr01 AAR 保留，不自动改名、复用或覆盖；
 需要重新构建时使用新的独立输出目录，并核对 source-sha256、Java bindings、四 ABI JNI 与 16 KiB 对齐。
 源码仓库不提交 AAR、SO、APK、密钥、缓存或实验报告。
@@ -50,7 +56,7 @@ bash ./run lib core
 ./gradlew testOssDebugUnitTest assembleOssDebug processOssReleaseMainManifest
 ```
 
-核心 AAR 由源码新生成至 `.build-deps/outputs/` 和 `app/libs/libcore-sing-box-1.14.3-sakura-sudoku.aar`。
+核心 AAR 由源码新生成至 `.build-deps/outputs/` 和 `app/libs/libcore-sing-box-1.14.3-sakura-with_nakis.aar`。
 缺少当前 AAR 时 Android 配置明确失败，不自动挑选旧版本。
 已有 AAR 不会被原生脚本覆盖；重建请设置新的 `OUTPUT_AAR` 和 `APP_AAR`，或使用下面独立输出流程及 `-PnekoCoreAar`。
 
@@ -66,8 +72,8 @@ PowerShell 工具接受明确环境参数，没有开发者专用 SDK、缓存�
 离线 Android 入口要求先保护所选 Gradle 8.10.2 User Home；选择已有下载依赖的专用目录，通过 `GRADLE_USER_HOME` 或 `-GradleUserHome` 指定，运行 `./tools/install-gradle-cache-policy.ps1 -GradleUserHome $env:GRADLE_USER_HOME` 安装一次经过审查的禁用自动回收策略。没有匹配策略时入口会停止，不会把 `--offline` 或 `--no-daemon` 当作缓存保护。Go工具默认跨任务复用缓存，也可传入已有可信 `-SharedCache`；仅显式 `-ColdCache` 创建任务专属冷缓存。分类保留和人工清理规则见 [tools/BUILD_CACHE.md](tools/BUILD_CACHE.md)。
 
 ```powershell
-./tools/offline-native-build.ps1 -GoRoot $env:GOROOT -RunDirectory .local-builds/native-check -OutputName libcore-sing-box-1.14.3-sakura-sudoku.aar -SharedCache $env:GOCACHE -ModuleCache $env:GOMODCACHE
-./tools/offline-android-build.ps1 -CoreAar .local-builds/native-check/libcore-sing-box-1.14.3-sakura-sudoku.aar -RunDirectory .local-builds/android-check -Tasks testOssDebugUnitTest,assembleOssDebug,processOssReleaseMainManifest
+./tools/offline-native-build.ps1 -GoRoot $env:GOROOT -RunDirectory .local-builds/native-check -OutputName libcore-sing-box-1.14.3-sakura-with_nakis.aar -SharedCache $env:GOCACHE -ModuleCache $env:GOMODCACHE
+./tools/offline-android-build.ps1 -CoreAar .local-builds/native-check/libcore-sing-box-1.14.3-sakura-with_nakis.aar -RunDirectory .local-builds/android-check -Tasks testOssDebugUnitTest,assembleOssDebug,processOssReleaseMainManifest
 ./tools/offline-go-tests.ps1 -GoRoot $env:GOROOT -RunDirectory .local-builds/go-check -SharedCache $env:GOCACHE -ModuleCache $env:GOMODCACHE -ConfigFixtures .local-builds/android-check/config-fixtures
 python tools/check-shortcut-security.py
 ```
@@ -147,3 +153,10 @@ node node_modules/vite/bin/vite.js build
 若以后采用重建包，需要额外保留 Twemoji Mozilla v0.7.0 的 Apache-2.0 代码许可和 CC-BY-4.0 图形许可，
 重新核对字体来源、完整通知及资源清单，并完成页面、认证、缓存更新和 Android WebView 回归。
 应用使用现有 UI 归档；参考构建不作为替代发行包。
+
+
+### Traffic reliability bridge
+
+The default libcore-sing-box-1.14.3-sakura-with_nakis.aar adds non-consuming per-route-tag profile counters to the existing monitor bridge on the same sing-box 1.14.3-sakura sources and tags. Rebuild with the existing offline native command. Older monitor AARs do not provide newProfileTrafficStats and cannot compile the traffic checkpoint implementation. Keep the AAR source SHA-256 manifest with local build evidence; the generated AAR remains ignored by Git.
+
+Native version reporting has three lines: the unchanged sing-box base version, the actual Go compiler and target platform, and the actual build tags followed by the with_sudoku feature marker exactly once. Sudoku is registered unconditionally in libcore; with_sudoku is a display capability marker, not an extra Go build parameter. The AAR filename remains libcore-sing-box-1.14.3-sakura-with_nakis.aar and retains Sudoku, connection monitoring and non-consuming profile traffic counters. Rebuild from source; do not rename an older AAR to this filename.

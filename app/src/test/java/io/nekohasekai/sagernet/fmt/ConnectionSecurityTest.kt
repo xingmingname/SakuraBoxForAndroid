@@ -16,6 +16,7 @@ import io.nekohasekai.sagernet.fmt.v2ray.parseDuckSoft
 import io.nekohasekai.sagernet.fmt.v2ray.toUriVMessVLESSTrojan
 import moe.matsuri.nb4a.SingBoxOptions
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
+import moe.matsuri.nb4a.proxy.anytls.anyTlsEchEnabled
 import moe.matsuri.nb4a.proxy.anytls.buildSingBoxOutboundAnyTLSBean
 import moe.matsuri.nb4a.proxy.anytls.importAnyTLSOutbound
 import org.junit.Assert.*
@@ -66,6 +67,78 @@ class ConnectionSecurityTest {
             File(it, "tls-reality-$fixture.json").writeText(Gson().toJson(root))
         }
         return serialized
+    }
+
+
+    @Test fun anyTlsEchInfersLegacyPemUntilAnExplicitStateIsSaved() {
+        val bean = any()
+        fun state() = anyTlsEchEnabled(ProtocolOptions.parse(bean.protocolOptionsJson), bean.echConfig)
+        assertFalse(state())
+        assertNull((generated(bean)["tls"] as Map<*, *>)["ech"])
+
+        bean.echConfig = "synthetic-pem"
+        assertTrue(state())
+        assertEquals(true, finalEch(bean)["enabled"])
+        assertEquals(listOf("synthetic-pem"), finalEch(bean)["config"])
+
+        setEch(bean, false)
+        val reopened = bean.clone()
+        assertEquals(bean.echConfig, reopened.echConfig)
+        assertFalse(anyTlsEchEnabled(ProtocolOptions.parse(reopened.protocolOptionsJson), reopened.echConfig))
+        assertEquals(false, finalEch(reopened)["enabled"])
+        setEch(reopened, true)
+        assertEquals(true, finalEch(reopened)["enabled"])
+        assertEquals(listOf("synthetic-pem"), finalEch(reopened)["config"])
+    }
+
+    @Test fun anyTlsEchCanUseDnsWithoutPemAndSurvivesRealityRoundTrip() {
+        val bean = any().apply {
+            protocolOptionsJson = """{"tls":{"ech":{"query_server_name":"ech.example.invalid"},"client_certificate":"synthetic-certificate","client_key":"synthetic-key"}}"""
+            utlsFingerprint = "chrome"
+        }
+        assertFalse(anyTlsEchEnabled(ProtocolOptions.parse(bean.protocolOptionsJson), bean.echConfig))
+        setEch(bean, true)
+        val tls = generated(bean)["tls"] as Map<*, *>
+        assertEquals(true, finalEch(bean)["enabled"])
+        assertFalse(finalEch(bean).containsKey("config"))
+        assertEquals("ech.example.invalid", finalEch(bean)["query_server_name"])
+        assertEquals("synthetic-certificate", tls["client_certificate"])
+        assertEquals("synthetic-key", tls["client_key"])
+        assertEquals("chrome", (tls["utls"] as Map<*, *>)["fingerprint"])
+
+        ConnectionSecurity.select(bean, ConnectionSecurity.Mode.REALITY)
+        assertNull((generated(bean)["tls"] as Map<*, *>)["ech"])
+        ConnectionSecurity.select(bean, ConnectionSecurity.Mode.TLS)
+        assertEquals(true, finalEch(bean)["enabled"])
+        assertEquals("ech.example.invalid", finalEch(bean)["query_server_name"])
+    }
+
+    @Test fun anyTlsEchImportedStatesKeepTheirPriorityAndValues() {
+        for (enabled in listOf(true, false)) {
+            val source = """{"type":"anytls","server":"127.0.0.1","server_port":443,"tls":{"enabled":true,"ech":{"enabled":$enabled,"config":["synthetic-pem"],"config_path":"ech.pem","query_server_name":"example.invalid"}}}"""
+            val bean = importAnyTLSOutbound(source)!!.clone()
+            val before = ProtocolOptions.parse(bean.protocolOptionsJson)
+            assertEquals(enabled, ProtocolOptions.get(before, "tls.ech.enabled")!!.asBoolean)
+            assertEquals(enabled, anyTlsEchEnabled(before, bean.echConfig))
+            assertEquals(enabled, finalEch(bean)["enabled"])
+
+            setEch(bean, !enabled)
+            val result = finalEch(bean)
+            assertEquals(!enabled, result["enabled"])
+            assertEquals(listOf("synthetic-pem"), result["config"])
+            assertEquals("ech.pem", result["config_path"])
+            assertEquals("example.invalid", result["query_server_name"])
+
+            val cleared = ConnectionSecurity.clearAdvancedOptions(bean, ProtocolOptions.parse(bean.protocolOptionsJson))
+            assertEquals(!enabled, ProtocolOptions.get(cleared, "tls.ech.enabled")!!.asBoolean)
+        }
+    }
+
+    private fun finalEch(bean: AnyTLSBean) = ((generated(bean)["tls"] as Map<*, *>)["ech"] as Map<*, *>)
+
+    private fun setEch(bean: AnyTLSBean, enabled: Boolean) {
+        val field = ProtocolOptions.Field("tls.ech.enabled", ProtocolOptions.Kind.BOOLEAN)
+        bean.protocolOptionsJson = ProtocolOptions.set(ProtocolOptions.parse(bean.protocolOptionsJson), field, enabled.toString()).toString()
     }
 
     @Test fun supportedModesFollowTheNativeProtocol() {

@@ -22,16 +22,25 @@ package tunnel
 import (
 	"io"
 	"net"
+	"os"
 	"sync"
+	"sync/atomic"
 	"time"
+
+	"github.com/sagernet/sing/common/pipe"
 )
 
 type muxStream struct {
 	session *muxSession
 	id      uint32
 
-	writeMu sync.Mutex
-	readMu  sync.Mutex // Serializes Read and WriteTo without blocking enqueue/close.
+	writeMu       sync.Mutex
+	interruptible atomic.Bool
+	done          chan struct{}
+	writeDeadline pipe.Deadline
+	readDeadline  time.Time
+	readTimer     *time.Timer
+	readMu        sync.Mutex // Serializes Read and WriteTo without blocking enqueue/close.
 
 	mu                sync.Mutex
 	cond              sync.Cond // cond.L is &mu.
@@ -51,7 +60,7 @@ type muxStream struct {
 var muxStreamAddr net.Addr = &net.TCPAddr{}
 
 func newMuxStream(session *muxSession, id uint32) *muxStream {
-	st := &muxStream{session: session, id: id}
+	st := &muxStream{session: session, id: id, done: make(chan struct{}), writeDeadline: pipe.MakeDeadline()}
 	st.cond.L = &st.mu
 	return st
 }
@@ -68,6 +77,8 @@ func (c *muxStream) abort(err error) {
 		return
 	}
 	c.closed = true
+	c.stopReadTimer()
+	close(c.done)
 	if c.closeErr == nil {
 		c.closeErr = err
 	}
@@ -130,6 +141,9 @@ func (c *muxStream) Read(p []byte) (int, error) {
 
 func (c *muxStream) waitReadableLocked() error {
 	for c.head == nil && !c.closed && !c.localReadClosed && !c.remoteWriteClosed {
+		if !c.readDeadline.IsZero() && !time.Now().Before(c.readDeadline) {
+			return os.ErrDeadlineExceeded
+		}
 		c.cond.Wait()
 	}
 	if c.head == nil {
@@ -173,7 +187,13 @@ func (c *muxStream) Write(p []byte) (int, error) {
 		if len(chunk) > muxMaxDataPayload {
 			chunk = p[:muxMaxDataPayload]
 		}
-		if err := c.session.sendFrame(muxFrameData, c.id, chunk); err != nil {
+		var err error
+		if c.interruptible.Load() {
+			err = c.session.queueStreamData(c, chunk)
+		} else {
+			err = c.session.sendFrame(muxFrameData, c.id, chunk)
+		}
+		if err != nil {
 			return written, err
 		}
 		written += len(chunk)
@@ -183,6 +203,9 @@ func (c *muxStream) Write(p []byte) (int, error) {
 }
 
 func (c *muxStream) Close() error {
+	if c.interruptible.Load() {
+		return c.Abort()
+	}
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
 
@@ -195,6 +218,8 @@ func (c *muxStream) Close() error {
 	}
 	sendClose := !c.localWriteClosed
 	c.closed = true
+	c.stopReadTimer()
+	close(c.done)
 	c.localReadClosed = true
 	c.localWriteClosed = true
 	if c.closeErr == nil {
@@ -257,13 +282,71 @@ func (c *muxStream) CloseRead() error {
 func (c *muxStream) LocalAddr() net.Addr  { return muxStreamAddr }
 func (c *muxStream) RemoteAddr() net.Addr { return muxStreamAddr }
 
-func (c *muxStream) SetDeadline(t time.Time) error {
-	_ = c.SetReadDeadline(t)
-	_ = c.SetWriteDeadline(t)
+// EnableStreamCancellation is used by a detour that needs independently
+// cancellable writes on a multiplexed transport.
+func (c *muxStream) EnableStreamCancellation() { c.interruptible.Store(true) }
+
+func (c *muxStream) Abort() error {
+	c.mu.Lock()
+	sendReset := !c.closed
+	// Serialize the reset with submissions. The writer rechecks done while
+	// holding pendMu before enqueueing a data frame.
+	s := c.session
+	if s != nil {
+		s.pendMu.Lock()
+	}
+	if sendReset {
+		c.closed = true
+		c.closeErr = net.ErrClosed
+		c.stopReadTimer()
+		close(c.done)
+	}
+	c.discardQueueLocked()
+	c.cond.Broadcast()
+	if s != nil {
+		if sendReset && !s.isClosed() {
+			s.queueFrame(muxFrameReset, c.id, nil)
+			s.kickWriter()
+		}
+		s.pendMu.Unlock()
+		s.removeStream(c.id)
+	}
+	c.mu.Unlock()
 	return nil
 }
-func (c *muxStream) SetReadDeadline(time.Time) error  { return nil }
-func (c *muxStream) SetWriteDeadline(time.Time) error { return nil }
+
+func (c *muxStream) SetDeadline(t time.Time) error {
+	_ = c.SetReadDeadline(t)
+	return c.SetWriteDeadline(t)
+}
+
+func (c *muxStream) stopReadTimer() {
+	if c.readTimer != nil {
+		c.readTimer.Stop()
+		c.readTimer = nil
+	}
+}
+
+func (c *muxStream) SetReadDeadline(t time.Time) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.stopReadTimer()
+	c.readDeadline = t
+	if !c.closed && !t.IsZero() {
+		c.readTimer = time.AfterFunc(time.Until(t), func() {
+			c.mu.Lock()
+			c.cond.Broadcast()
+			c.mu.Unlock()
+		})
+	}
+	c.cond.Broadcast()
+	return nil
+}
+
+func (c *muxStream) SetWriteDeadline(t time.Time) error {
+	c.writeDeadline.Set(t)
+	return nil
+}
 
 // enqueue takes ownership of chunk, including when the stream rejects it.
 func (c *muxStream) enqueue(chunk *muxChunk) error {

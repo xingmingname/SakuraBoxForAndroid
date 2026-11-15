@@ -5,7 +5,7 @@ import io.nekohasekai.sagernet.fmt.sudoku.SudokuBean
 import io.nekohasekai.sagernet.fmt.sudoku.SudokuOptions
 import io.nekohasekai.sagernet.fmt.sudoku.SudokuShareLink
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
-import io.nekohasekai.sagernet.group.RawUpdater
+import io.nekohasekai.sagernet.group.SubscriptionParser
 import io.nekohasekai.sagernet.ktx.parseProxies
 import kotlinx.coroutines.runBlocking
 import moe.matsuri.nb4a.utils.ImportLimits
@@ -285,7 +285,7 @@ class SudokuShareLinkTest {
     @Test fun clipboardScannerAndSubscriptionCommonParserAcceptPlainAndBase64Lists() = runBlocking {
         val plain = uri(minimal) + "\n" + uri(NodeJson.parse(minimal).apply { addProperty("p", 8443) }.toString())
         for (text in listOf(plain, Base64.getEncoder().encodeToString(plain.toByteArray()))) {
-            val beans = RawUpdater.parseRaw(text)!!
+            val beans = SubscriptionParser.parseRaw(text)!!
             assertEquals(2, beans.size); assertTrue(beans.all { it is SudokuBean })
             assertEquals(listOf(443, 8443), beans.map { it.serverPort })
         }

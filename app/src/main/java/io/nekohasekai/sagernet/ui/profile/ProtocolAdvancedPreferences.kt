@@ -14,6 +14,7 @@ import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.ProtocolOptions
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
+import moe.matsuri.nb4a.proxy.anytls.anyTlsEchEnabled
 
 internal fun Preference.bindProtocolValue(value: String) {
     // PreferenceDataStore initializes nonpersistent controls again when they join the hierarchy.
@@ -87,7 +88,8 @@ internal class ProtocolAdvancedPreferences(
 
     fun refresh() {
         val current = bean()
-        if (current is io.nekohasekai.sagernet.fmt.sudoku.SudokuBean) return
+        if (current is io.nekohasekai.sagernet.fmt.sudoku.SudokuBean ||
+            current is io.nekohasekai.sagernet.fmt.nakis.NakisBean) return
         val fields = ProtocolOptions.fields(current)
         val expandedCount = category?.initialExpandedChildrenCount ?: 0
         category?.let { fragment.preferenceScreen.removePreference(it) }
@@ -134,7 +136,8 @@ internal class ProtocolAdvancedPreferences(
             val reality = current is StandardV2RayBean && ConnectionSecurity.mode(current, root) == ConnectionSecurity.Mode.REALITY || ProtocolOptions.get(root, "tls.reality.enabled")?.asBoolean == true
             if (field.path in setOf("tls.disable_sni", "tls.certificate_public_key_sha256") && reality) continue
             if (field.path == "tls.ech.query_server_name") {
-                val ech = current is StandardV2RayBean && current.enableECH == true || current is AnyTLSBean && !current.echConfig.isNullOrBlank() || ProtocolOptions.get(root, "tls.ech.enabled")?.asBoolean == true
+                val ech = if (current is AnyTLSBean) anyTlsEchEnabled(root, current.echConfig)
+                    else current is StandardV2RayBean && current.enableECH == true || ProtocolOptions.get(root, "tls.ech.enabled")?.asBoolean == true
                 if (!ech || reality) continue
             }
             if (field.path.startsWith("multiplex.") && field.path != "multiplex.enabled") {

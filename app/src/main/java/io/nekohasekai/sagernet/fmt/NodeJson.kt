@@ -119,7 +119,7 @@ object NodeJson {
         outs.forEachIndexed { i, out ->
             val tag = string(out, "tag") ?: i.toString()
             if (!tags.add(tag)) throw Invalid(ErrorKind.REFERENCE, "Duplicate outbound tag: $tag")
-            if (string(out, "type") in setOf("vless", "vmess", "trojan", "shadowsocks", "anytls", "sudoku", "hysteria", "hysteria2", "tuic", "http", "socks", "ssh")) {
+            if (string(out, "type") in setOf("vless", "vmess", "trojan", "shadowsocks", "anytls", "sudoku", "nakis", "hysteria", "hysteria2", "tuic", "http", "socks", "ssh")) {
                 if (string(out, "server").isNullOrBlank()) throw Invalid(ErrorKind.MISSING, "outbounds[$i].server is required")
                 val port = out.get("server_port")
                 val hopping = string(out, "type") in setOf("hysteria", "hysteria2") && out.has("server_ports")
@@ -258,7 +258,7 @@ object NodeJson {
         val automatic = defaultInterface.isEmpty() && route?.get("auto_detect_interface")?.asBoolean == true
         val defaultBound = defaultInterface in physicalInterfaces
         val dialerTypes = setOf("direct", "socks", "http", "shadowsocks", "vmess", "vless", "trojan",
-            "hysteria", "hysteria2", "tuic", "anytls", "sudoku", "ssh", "shadowtls", "wireguard",
+            "hysteria", "hysteria2", "tuic", "anytls", "sudoku", "nakis", "ssh", "shadowtls", "wireguard",
             "udp", "tcp", "tls", "https", "quic", "h3", "dhcp")
         fun check(options: JsonObject, path: String) {
             if (!string(options, "detour").isNullOrEmpty()) return

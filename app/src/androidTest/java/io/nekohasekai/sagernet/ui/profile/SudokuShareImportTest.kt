@@ -19,7 +19,7 @@ import io.nekohasekai.sagernet.fmt.buildConfig
 import io.nekohasekai.sagernet.fmt.sudoku.SudokuBean
 import io.nekohasekai.sagernet.fmt.sudoku.SudokuOptions
 import io.nekohasekai.sagernet.fmt.sudoku.SudokuShareLink
-import io.nekohasekai.sagernet.group.RawUpdater
+import io.nekohasekai.sagernet.group.SubscriptionParser
 import kotlinx.coroutines.runBlocking
 import libcore.Libcore
 
@@ -30,7 +30,7 @@ class SudokuShareImportTest : InstrumentationTestCase() {
         assertTrue(BuildConfig.DEBUG)
         assertEquals("app.sakurabox.client.sudoku.debug", BuildConfig.APPLICATION_ID)
         assertFalse(DataStore.serviceState.canStop)
-        assertTrue(Libcore.versionBox().contains("sudoku: "))
+        assertTrue(Libcore.versionBox().lineSequence().last().split(',').contains("with_sudoku"))
         val previousGroup = DataStore.selectedGroup
         val previousSelected = DataStore.selectedProxy
         val group = SagerDatabase.groupDao.createGroup(ProxyGroup(name = "Sudoku share test ${System.nanoTime()}", type = GroupType.BASIC))
@@ -39,7 +39,7 @@ class SudokuShareImportTest : InstrumentationTestCase() {
             DataStore.selectedGroup = group
             val payload = """{"h":"127.0.0.1","p":443,"k":"synthetic-key","n":"中文 + /?#%","e":"chacha20-poly1305","m":10233,"hd":true,"hx":"on"}"""
             val link = "sudoku://" + Base64.encodeToString(payload.toByteArray(Charsets.UTF_8), Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
-            val bean = RawUpdater.parseRaw(link)!!.single() as SudokuBean
+            val bean = SubscriptionParser.parseRaw(link)!!.single() as SudokuBean
             val saved = ProfileManager.createProfile(group, bean)
             assertEquals(ProxyEntity.TYPE_SUDOKU, saved.type)
             assertEquals(10233, (saved.requireBean() as SudokuBean).shareLinkLocalPort)

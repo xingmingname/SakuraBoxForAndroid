@@ -143,6 +143,12 @@ public class KryoConverters {
     }
 
     @TypeConverter
+    public static io.nekohasekai.sagernet.fmt.nakis.NakisBean nakisDeserialize(byte[] bytes) {
+        if (JavaUtil.isEmpty(bytes)) return null;
+        return deserialize(new io.nekohasekai.sagernet.fmt.nakis.NakisBean(), bytes);
+    }
+
+    @TypeConverter
     public static AnyTLSBean anyTLSDeserialize(byte[] bytes) {
         if (JavaUtil.isEmpty(bytes)) return null;
         return deserialize(new AnyTLSBean(), bytes);

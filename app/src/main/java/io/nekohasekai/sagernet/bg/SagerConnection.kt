@@ -59,7 +59,7 @@ class SagerConnection(
 
     private var connectionActive = false
     private var callbackRegistered = false
-    private var callback: Callback? = null
+    @Volatile private var callback: Callback? = null
     private val serviceCallback = object : ISagerNetServiceCallback.Stub() {
 
         override fun stateChanged(state: Int, profileName: String?, msg: String?) {
@@ -75,14 +75,14 @@ class SagerConnection(
         override fun cbSpeedUpdate(stats: SpeedDisplayData) {
             val callback = callback ?: return
             runOnMainDispatcher {
-                callback.cbSpeedUpdate(stats)
+                if (this@SagerConnection.callback === callback) callback.cbSpeedUpdate(stats)
             }
         }
 
         override fun cbTrafficUpdate(stats: TrafficData) {
             val callback = callback ?: return
             runOnMainDispatcher {
-                callback.cbTrafficUpdate(stats)
+                if (this@SagerConnection.callback === callback) callback.cbTrafficUpdate(stats)
             }
         }
 

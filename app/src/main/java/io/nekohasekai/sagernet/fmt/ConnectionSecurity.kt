@@ -87,12 +87,18 @@ object ConnectionSecurity {
     fun clearAdvancedOptions(bean: AbstractBean, options: JsonObject): JsonObject {
         if (supported(bean).isEmpty()) return JsonObject()
         val result = JsonObject()
-        for (key in listOf("enabled", "public_key", "short_id")) {
-            val value = ProtocolOptions.get(options, "tls.reality.$key") ?: continue
+        fun retain(section: String, keys: List<String>) {
+            val saved = JsonObject()
+            for (key in keys) {
+                val value = ProtocolOptions.get(options, "tls.$section.$key") ?: continue
+                saved.add(key, value.deepCopy())
+            }
+            if (saved.size() == 0) return
             val tls = result.getAsJsonObject("tls") ?: JsonObject().also { result.add("tls", it) }
-            val reality = tls.getAsJsonObject("reality") ?: JsonObject().also { tls.add("reality", it) }
-            reality.add(key, value.deepCopy())
+            tls.add(section, saved)
         }
+        retain("reality", listOf("enabled", "public_key", "short_id"))
+        if (bean is AnyTLSBean) retain("ech", listOf("enabled", "config"))
         return result
     }
 

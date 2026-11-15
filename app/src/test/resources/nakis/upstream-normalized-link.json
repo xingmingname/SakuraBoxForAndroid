@@ -1,0 +1,28 @@
+{
+  "name": "新版地址 + 测试",
+  "link": "nakis://6c1c4a52-3b8e-4d9a-9a52-0d4f5f0f7a11@primary.test:443?v=1&sni=front.test&alt=[2001:db8::1]:8443,[::ffff:192.0.2.1]:443,[fe80::1%25Eth0]:8443#%E6%96%B0%E7%89%88%E5%9C%B0%E5%9D%80%20+%20%E6%B5%8B%E8%AF%95",
+  "client": {
+    "listen": "127.0.0.1:1080",
+    "server": "primary.test:443,[2001:db8::1]:8443,[::ffff:192.0.2.1]:443,[fe80::1%Eth0]:8443",
+    "uuid": "6c1c4a52-3b8e-4d9a-9a52-0d4f5f0f7a11",
+    "race_count": 3,
+    "dial_timeout": "8s",
+    "handshake_timeout": "10s",
+    "pool_lo": 2,
+    "pool_hi": 32,
+    "pool_max_age": "45s",
+    "pool_max_uses": 8,
+    "keepalive": "15s",
+    "log_level": "info",
+    "congestion": "",
+    "send_pack": 20480,
+    "send_tail": 512,
+    "send_quiet": 4,
+    "shape_up": null,
+    "shape_wait": "20ms",
+    "tls": true,
+    "sni": "front.test",
+    "tls_pins": null,
+    "ech_config": ""
+  }
+}

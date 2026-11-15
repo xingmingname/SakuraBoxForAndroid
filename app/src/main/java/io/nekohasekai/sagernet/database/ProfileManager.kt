@@ -87,6 +87,18 @@ object ProfileManager {
         return profile
     }
 
+    suspend fun clearTraffic(ids: List<Long>) {
+        try {
+            io.nekohasekai.sagernet.bg.TrafficResetClient.clear(app, ids)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            Logs.w("Traffic reset failed existing totals retained")
+            return
+        }
+        ids.forEach { postUpdate(it) }
+    }
+
     suspend fun updateProfile(profile: ProxyEntity) {
         SagerDatabase.instance.runInTransaction {
             val latest = SagerDatabase.proxyDao.getById(profile.id) ?: return@runInTransaction

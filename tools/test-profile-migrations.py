@@ -39,8 +39,13 @@ for start in range(1,latest):
         assert rows==before[table],(start,table,'historical row or BLOB changed')
     if start == 1:
         assert db.execute('SELECT isSelector,frontProxy,landingProxy FROM proxy_groups').fetchone()==(0,-1,-1)
-    assert db.execute('SELECT sudokuBean FROM proxy_entities').fetchone() == (None,)
+    if start < 7:
+        assert db.execute('SELECT sudokuBean FROM proxy_entities').fetchone() == (None,)
     payload = b'\x00synthetic-sudoku-v0-v1-container\xff'
     db.execute('UPDATE proxy_entities SET sudokuBean=? WHERE id=1', (payload,))
     assert db.execute('SELECT sudokuBean FROM proxy_entities WHERE id=1').fetchone() == (payload,)
-    print(f'PASS schema {start} -> {latest}: columns, constraints, original rows/BLOBs preserved; new nullable Sudoku BLOB round-trip')
+    if latest >= 8:
+        assert db.execute('SELECT nakisBean FROM proxy_entities').fetchone() == (None,)
+        db.execute('UPDATE proxy_entities SET nakisBean=? WHERE id=1', (payload,))
+        assert db.execute('SELECT nakisBean FROM proxy_entities WHERE id=1').fetchone() == (payload,)
+    print(f'PASS schema {start} -> {latest}: columns, constraints, original rows/BLOBs preserved; nullable protocol BLOBs round-trip')

@@ -5,6 +5,8 @@ import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
+import androidx.preference.SwitchPreference
+import com.google.gson.JsonArray
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.AbstractBean
@@ -12,6 +14,8 @@ import io.nekohasekai.sagernet.fmt.ConnectionSecurity
 import io.nekohasekai.sagernet.fmt.ProtocolOptions
 import io.nekohasekai.sagernet.fmt.MtlsOptions
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
+import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
+import moe.matsuri.nb4a.proxy.anytls.anyTlsEchEnabled
 
 internal fun EditTextPreference.bindMtlsValue(value: String) {
     isPersistent = false
@@ -28,6 +32,19 @@ internal fun PreferenceFragmentCompat.syncMtlsValues(raw: String?) {
         val value = ProtocolOptions.text(options, field)
         if (pref.text != value) pref.bindMtlsValue(value)
     }
+}
+
+private val echEnabled = ProtocolOptions.Field("tls.ech.enabled", ProtocolOptions.Kind.BOOLEAN)
+private val echConfig = ProtocolOptions.Field("tls.ech.config", ProtocolOptions.Kind.LIST)
+
+internal fun PreferenceFragmentCompat.syncAnyTlsEchValues(raw: String?) {
+    val toggle = findPreference<SwitchPreference>("enableECH")?.takeUnless { it.isPersistent } ?: return
+    val options = try { ProtocolOptions.parse(raw) } catch (_: Exception) { return }
+    val pem = DataStore.profileCacheStore.getString("echConfig").orEmpty()
+    toggle.isChecked = anyTlsEchEnabled(options, pem)
+    val field = findPreference<EditTextPreference>("echConfig") ?: return
+    val text = if (ProtocolOptions.get(options, echConfig.path) == null) pem else ProtocolOptions.text(options, echConfig)
+    if (field.text != text) field.bindProtocolValue(text)
 }
 
 class ConnectionSecurityPreferences(
@@ -64,6 +81,7 @@ class ConnectionSecurityPreferences(
         bindRealityField("realityShortId", "short_id", R.string.connection_reality_short_id)
         bindMtlsField("mtlsClientCertificate", MtlsOptions.certificate)
         bindMtlsField("mtlsClientKey", MtlsOptions.key)
+        if (current() is AnyTLSBean) bindAnyTlsEch()
         fragment.findPreference<ListPreference>("utlsFingerprint")?.setOnPreferenceChangeListener { _, value ->
             val edited = current()
             if (edited is StandardV2RayBean) edited.utlsFingerprint = value.toString()
@@ -116,6 +134,45 @@ class ConnectionSecurityPreferences(
         require(enabled == null || enabled.isJsonPrimitive && enabled.asJsonPrimitive.isBoolean)
         true
     } catch (_: Exception) {
+        Toast.makeText(fragment.requireContext(), R.string.protocol_option_invalid_json, Toast.LENGTH_LONG).show()
+        false
+    }
+
+    private fun bindAnyTlsEch() {
+        val store = DataStore.profileCacheStore
+        val key = ProtocolAdvancedPreferences.CACHE_KEY
+        fragment.findPreference<SwitchPreference>("enableECH")!!.setOnPreferenceChangeListener { _, value ->
+            editAnyTlsEch {
+                val options = ProtocolOptions.parse(store.getString(key))
+                store.putString(key, ProtocolOptions.set(options, echEnabled, value.toString()).toString())
+            }
+        }
+        fragment.findPreference<EditTextPreference>("echConfig")!!.setOnPreferenceChangeListener { _, value ->
+            editAnyTlsEch {
+                val options = ProtocolOptions.parse(store.getString(key))
+                val effective = ProtocolOptions.get(options, echConfig.path)
+                val pem = value.toString()
+                if (effective == null) {
+                    store.putString("echConfig", pem)
+                } else {
+                    // Edit the winning imported value. An empty array prevents stale inline PEM
+                    // from taking precedence over a path or DNS after the user clears it.
+                    val config = JsonArray().apply { pem.lineSequence().filter { it.isNotBlank() }.forEach { add(it) } }
+                    options.getAsJsonObject("tls").getAsJsonObject("ech").add("config", config)
+                    store.putString(key, options.toString())
+                }
+            }
+        }
+        fragment.syncAnyTlsEchValues(store.getString(key))
+    }
+
+    private inline fun editAnyTlsEch(update: () -> Unit): Boolean = try {
+        update()
+        true
+    } catch (_: IllegalArgumentException) {
+        Toast.makeText(fragment.requireContext(), R.string.protocol_option_invalid_json, Toast.LENGTH_LONG).show()
+        false
+    } catch (_: com.google.gson.JsonParseException) {
         Toast.makeText(fragment.requireContext(), R.string.protocol_option_invalid_json, Toast.LENGTH_LONG).show()
         false
     }

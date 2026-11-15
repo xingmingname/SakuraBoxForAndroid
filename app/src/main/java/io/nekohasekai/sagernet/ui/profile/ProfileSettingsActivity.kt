@@ -276,10 +276,12 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                 if (key in setOf(Key.PROTOCOL_VERSION, Key.SERVER_PROTOCOL)) {
                     migrateHysteriaEditorCache()
                 }
-                if (key == ProtocolAdvancedPreferences.CACHE_KEY) {
+                if (key == ProtocolAdvancedPreferences.CACHE_KEY || key == "echConfig") {
                     child.view?.post {
+                        val options = DataStore.profileCacheStore.getString(ProtocolAdvancedPreferences.CACHE_KEY)
                         protocolPreferences?.refresh()
-                        child.syncMtlsValues(DataStore.profileCacheStore.getString(ProtocolAdvancedPreferences.CACHE_KEY))
+                        if (key == ProtocolAdvancedPreferences.CACHE_KEY) child.syncMtlsValues(options)
+                        child.syncAnyTlsEchValues(options)
                     }
                 } else protocolPreferences?.refresh()
             }

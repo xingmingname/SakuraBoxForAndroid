@@ -33,6 +33,9 @@ func ExportPortableConfig(config string) (string, error) {
 		return "", err
 	}
 	for i, outbound := range outbounds {
+		if outbound.Type == "nakis" {
+			return "", fmt.Errorf("outbounds[%d]: nakis is a SakuraBox extension; use internal export", i)
+		}
 		if outbound.Type == "sudoku" {
 			return "", fmt.Errorf("outbounds[%d]: sudoku requires the SakuraBox experimental core or Sudoku fork; official sing-box Android does not support this protocol; use internal export", i)
 		}

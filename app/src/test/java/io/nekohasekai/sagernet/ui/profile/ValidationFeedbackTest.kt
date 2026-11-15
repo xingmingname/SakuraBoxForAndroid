@@ -73,7 +73,8 @@ class ValidationFeedbackTest {
         assertTrue(profile.contains("currentCoroutineContext().ensureActive()"))
     }
     @Test fun runtimeCoreAndReferenceProtectionsStayIndependentOfRemovedWarnings() {
-        assertTrue(source("fmt/ConfigBuilder").contains("chainGraph.within"))
+        assertTrue(source("fmt/ConfigBuilder").contains("chainProfiles.resolve(entity)"))
+        assertTrue(source("fmt/ChainProfileResolver").contains("chainGraph.within"))
         assertTrue(source("fmt/ConfigBuilder").contains("requireAndroidJsonVpn"))
         assertTrue(source("fmt/NodeJsonProfile").contains("Libcore.newSingBoxInstance"))
         assertFalse(source("ui/profile/ChainSettingsActivity").contains("override suspend fun saveAndExit"))

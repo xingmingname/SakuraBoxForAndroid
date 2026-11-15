@@ -2,6 +2,8 @@ package libcore
 
 import (
 	"context"
+	"fmt"
+	"libcore/nakis"
 
 	box "github.com/sagernet/sing-box"
 	"github.com/sagernet/sing-box/adapter/certificate"
@@ -20,6 +22,13 @@ func CheckConfig(config string) error {
 	var options option.Options
 	if err = options.UnmarshalJSONContext(ctx, data); err != nil {
 		return err
+	}
+	for i, outbound := range options.Outbounds {
+		if cfg, ok := outbound.Options.(*nakis.OutboundOptions); ok {
+			if err := nakis.ValidateOptions(*cfg); err != nil {
+				return fmt.Errorf("outbounds[%d]: %w", i, err)
+			}
+		}
 	}
 	return validateSudokuResources(options)
 }

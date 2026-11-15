@@ -14,6 +14,10 @@ setupApp()
 val projectLicenseAssets = layout.buildDirectory.dir("generated/assets/projectLicense")
 val generateProjectLicenseAssets by tasks.registering(Sync::class) {
     from(rootProject.file("LICENSE")) { into("project-license") }
+    from(rootProject.file("libcore/nakis/LICENSE")) {
+        into("project-license")
+        rename { "NAKIS-LICENSE" }
+    }
     into(projectLicenseAssets)
 }
 
@@ -59,9 +63,9 @@ dependencies {
     androidTestCompileOnly(files("${android.sdkDirectory}/platforms/android-35/optional/android.test.runner.jar"))
 
     val localCoreAar = providers.gradleProperty("nekoCoreAar").orNull
-        ?: file("libs/libcore-sing-box-1.14.3-sakura-sudoku.aar").absolutePath
+        ?: file("libs/libcore-sing-box-1.14.3-sakura-with_nakis.aar").absolutePath
     require(file(localCoreAar).isFile) {
-        "Build the SakuraBox Sudoku libcore AAR first, or set -PnekoCoreAar to its verified path. See BUILDING.md."
+        "Build the SakuraBox libcore AAR with Nakis and Sudoku first, or set -PnekoCoreAar to its verified path. See BUILDING.md."
     }
     implementation(fileTree("libs") { exclude("libcore*.aar") })
     implementation(files(localCoreAar))

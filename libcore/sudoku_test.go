@@ -68,8 +68,8 @@ func TestSudokuRejectsInvalidOptionsBeforeDialing(t *testing.T) {
 }
 
 func TestSudokuInternalConfigPreservedAndOfficialExportRejected(t *testing.T) {
-	if !strings.Contains(VersionBox(), "sudoku: "+sudoku.UpstreamCommit) {
-		t.Fatalf("experimental core version lacks Sudoku provenance: %s", VersionBox())
+	if !strings.Contains(","+strings.Split(VersionBox(), "\n")[2]+",", ",with_sudoku,") {
+		t.Fatalf("core version lacks Sudoku feature: %s", VersionBox())
 	}
 	out := sudokuTestOutbound()
 	out["httpmask"] = map[string]any{"mode": "ws", "tls": true, "host": "example.invalid", "path_root": "local", "multiplex": "auto"}

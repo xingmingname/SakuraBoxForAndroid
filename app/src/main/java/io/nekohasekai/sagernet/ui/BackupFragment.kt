@@ -20,7 +20,6 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.bg.Executable
 import io.nekohasekai.sagernet.database.*
-import io.nekohasekai.sagernet.database.preference.KeyValuePair
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
 import io.nekohasekai.sagernet.databinding.LayoutBackupBinding
 import io.nekohasekai.sagernet.databinding.LayoutImportBinding
@@ -28,6 +27,8 @@ import io.nekohasekai.sagernet.databinding.LayoutProgressBinding
 import io.nekohasekai.sagernet.ktx.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -252,8 +253,10 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
             MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.backup_import)
                 .setView(import.root)
                 .setPositiveButton(R.string.backup_import) { _, _ ->
-                    SagerNet.stopService()
-
+                    val profiles = import.backupConfigurations.isChecked
+                    val rules = import.backupRules.isChecked
+                    val settings = import.backupSettings.isChecked
+                    val context = requireContext()
                     val binding = LayoutProgressBinding.inflate(layoutInflater)
                     binding.content.text = getString(R.string.backup_importing)
                     val dialog = AlertDialog.Builder(requireContext())
@@ -261,88 +264,26 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                         .setCancelable(false)
                         .show()
                     runOnDefaultDispatcher {
-                        runCatching {
-                            finishImport(
-                                content,
-                                import.backupConfigurations.isChecked,
-                                import.backupRules.isChecked,
-                                import.backupSettings.isChecked
-                            )
-                            triggerFullRestart(requireContext())
-                        }.onFailure {
-                            Logs.w(it)
-                            onMainDispatcher {
-                                alert(it.readableMessage).tryToShow()
-                            }
-                        }
-
-                        onMainDispatcher {
-                            dialog.dismiss()
+                        try {
+                            val backup = BackupRestore.decode(content, profiles, rules, settings)
+                            currentCoroutineContext().ensureActive()
+                            SagerNet.stopService()
+                            BackupRestore.apply(context.applicationContext, backup)
+                            triggerFullRestart(context)
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (_: BackupRestore.InvalidBackup) {
+                            invalid()
+                        } catch (error: Exception) {
+                            Logs.w(error)
+                            onMainDispatcher { alert(error.readableMessage).tryToShow() }
+                        } finally {
+                            withContext(NonCancellable + Dispatchers.Main) { dialog.dismiss() }
                         }
                     }
                 }
                 .setNegativeButton(android.R.string.cancel, null)
                 .show()
-        }
-    }
-
-    fun finishImport(
-        content: JSONObject, profile: Boolean, rule: Boolean, setting: Boolean
-    ) {
-        if (profile && content.has("profiles")) {
-            val profiles = mutableListOf<ProxyEntity>()
-            val jsonProfiles = content.getJSONArray("profiles")
-            for (i in 0 until jsonProfiles.length()) {
-                val data = Util.b64Decode(jsonProfiles[i] as String)
-                val parcel = Parcel.obtain()
-                parcel.unmarshall(data, 0, data.size)
-                parcel.setDataPosition(0)
-                profiles.add(ProxyEntity.CREATOR.createFromParcel(parcel))
-                parcel.recycle()
-            }
-            SagerDatabase.proxyDao.reset()
-            SagerDatabase.proxyDao.insert(profiles)
-
-            val groups = mutableListOf<ProxyGroup>()
-            val jsonGroups = content.getJSONArray("groups")
-            for (i in 0 until jsonGroups.length()) {
-                val data = Util.b64Decode(jsonGroups[i] as String)
-                val parcel = Parcel.obtain()
-                parcel.unmarshall(data, 0, data.size)
-                parcel.setDataPosition(0)
-                groups.add(ProxyGroup.CREATOR.createFromParcel(parcel))
-                parcel.recycle()
-            }
-            SagerDatabase.groupDao.reset()
-            SagerDatabase.groupDao.insert(groups)
-        }
-        if (rule && content.has("rules")) {
-            val rules = mutableListOf<RuleEntity>()
-            val jsonRules = content.getJSONArray("rules")
-            for (i in 0 until jsonRules.length()) {
-                val data = Util.b64Decode(jsonRules[i] as String)
-                val parcel = Parcel.obtain()
-                parcel.unmarshall(data, 0, data.size)
-                parcel.setDataPosition(0)
-                rules.add(ParcelizeBridge.createRule(parcel))
-                parcel.recycle()
-            }
-            SagerDatabase.rulesDao.reset()
-            SagerDatabase.rulesDao.insert(rules)
-        }
-        if (setting && content.has("settings")) {
-            val settings = mutableListOf<KeyValuePair>()
-            val jsonSettings = content.getJSONArray("settings")
-            for (i in 0 until jsonSettings.length()) {
-                val data = Util.b64Decode(jsonSettings[i] as String)
-                val parcel = Parcel.obtain()
-                parcel.unmarshall(data, 0, data.size)
-                parcel.setDataPosition(0)
-                settings.add(KeyValuePair.CREATOR.createFromParcel(parcel))
-                parcel.recycle()
-            }
-            PublicDatabase.kvPairDao.reset()
-            PublicDatabase.kvPairDao.insert(settings)
         }
     }
 

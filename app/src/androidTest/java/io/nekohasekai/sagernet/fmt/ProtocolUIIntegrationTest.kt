@@ -4,7 +4,7 @@ import android.test.InstrumentationTestCase
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProxyEntity
-import io.nekohasekai.sagernet.group.RawUpdater
+import io.nekohasekai.sagernet.group.SubscriptionParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import libcore.Libcore
@@ -21,12 +21,12 @@ class ProtocolUIIntegrationTest : InstrumentationTestCase() {
     private val node = """{"type":"anytls","tag":"synthetic","server":"127.0.0.1","server_port":443,"password":"synthetic-test","idle_session_timeout":"60s","min_idle_session":2,"tls":{"enabled":true,"server_name":"example.invalid","handshake_timeout":"5s"}}"""
 
     fun testJsonAndYamlImportKeepSessionOptions() = runBlocking(Dispatchers.Default) {
-        val json = RawUpdater.parseRaw("""{"outbounds":[$node]}""")!!.single() as AnyTLSBean
+        val json = SubscriptionParser.parseRaw("""{"outbounds":[$node]}""")!!.single() as AnyTLSBean
         assertEquals("60s", ProtocolOptions.get(ProtocolOptions.parse(json.protocolOptionsJson), "idle_session_timeout")!!.asString)
         val yaml = """proxies:
  - {name: synthetic, type: anytls, server: 127.0.0.1, port: 443, password: synthetic-test, idle-session-check-interval: 30s, idle-session-timeout: 60s, min-idle-session: 2}
 """
-        val fromYaml = RawUpdater.parseRaw(yaml)!!.single() as AnyTLSBean
+        val fromYaml = SubscriptionParser.parseRaw(yaml)!!.single() as AnyTLSBean
         assertEquals(2, ProtocolOptions.get(ProtocolOptions.parse(fromYaml.protocolOptionsJson), "min_idle_session")!!.asInt)
         assertEquals(fromYaml.protocolOptionsJson, fromYaml.clone().protocolOptionsJson)
     }
@@ -36,7 +36,7 @@ class ProtocolUIIntegrationTest : InstrumentationTestCase() {
             """{"type":"hysteria2","server":"127.0.0.1","server_port":443,"password":"synthetic","up_mbps":10,"hop_interval_max":"30s","tls":{"enabled":true}}""",
             """{"type":"shadowsocks","server":"127.0.0.1","server_port":443,"method":"aes-128-gcm","password":"synthetic","multiplex":{"enabled":true,"max_connections":2}}"""
         )) {
-            val bean = RawUpdater.parseRaw(source)!!.single() as ConfigBean
+            val bean = SubscriptionParser.parseRaw(source)!!.single() as ConfigBean
             assertEquals(com.google.gson.JsonParser.parseString(source), com.google.gson.JsonParser.parseString(bean.config))
         }
     }
@@ -47,7 +47,7 @@ class ProtocolUIIntegrationTest : InstrumentationTestCase() {
         try {
             DataStore.serviceMode=Key.MODE_PROXY; DataStore.globalCustomConfig=""
             DataStore.directDns="local"; DataStore.remoteDns="udp://127.0.0.1:15353"
-            val bean=RawUpdater.parseRaw(node)!!.single() as AnyTLSBean
+            val bean=SubscriptionParser.parseRaw(node)!!.single() as AnyTLSBean
             val full=buildConfig(ProxyEntity().putBean(bean), forTest=true).config
             fun check(text: String) {
                 val array=JSONObject(text).getJSONArray("outbounds")

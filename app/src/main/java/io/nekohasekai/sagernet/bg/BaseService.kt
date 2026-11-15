@@ -22,8 +22,6 @@ import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager
 import io.nekohasekai.sagernet.utils.DefaultNetworkListener
 import kotlinx.coroutines.*
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import libcore.Libcore
 import moe.matsuri.nb4a.Protocols
 import moe.matsuri.nb4a.utils.Util
@@ -45,8 +43,10 @@ class BaseService {
     interface ExpectedException
 
     class Data internal constructor(private val service: Interface) {
-        var state = State.Stopped
-        var proxy: ProxyInstance? = null
+        @Volatile var state = State.Stopped
+            private set
+
+        @Volatile var proxy: ProxyInstance? = null
         var notification: ServiceNotification? = null
 
         val receiver = broadcastReceiver { ctx, intent ->
@@ -95,54 +95,76 @@ class BaseService {
         }
     }
 
-    class Binder(private var data: Data? = null) : ISagerNetService.Stub(), CoroutineScope,
+    class Binder(@Volatile private var data: Data? = null) : ISagerNetService.Stub(), CoroutineScope,
         AutoCloseable {
-        private val callbacks = object : RemoteCallbackList<ISagerNetServiceCallback>() {
-            override fun onCallbackDied(callback: ISagerNetServiceCallback?, cookie: Any?) {
-                super.onCallbackDied(callback, cookie)
-            }
-        }
-
-        val callbackIdMap = mutableMapOf<ISagerNetServiceCallback, Int>()
+        private val callbacks = RemoteCallbackList<ISagerNetServiceCallback>()
+        private val callbacksAccess = Any()
+        private var callbacksClosed = false
 
         override val coroutineContext = Dispatchers.Main.immediate + Job()
 
         override fun getState(): Int = (data?.state ?: State.Idle).ordinal
-        override fun getProfileName(): String = data?.proxy?.displayProfileName ?: "Idle"
+        override fun getProfileName(): String = (data?.proxy?.displayProfileName ?: "Idle")
 
         override fun registerCallback(cb: ISagerNetServiceCallback, id: Int) {
             if (id == SagerConnection.CONNECTION_ID_RESTART_BG) {
                 Runtime.getRuntime().exit(0)
                 return
             }
-            if (!callbackIdMap.contains(cb)) {
-                callbacks.register(cb)
+            synchronized(callbacksAccess) {
+                if (callbacksClosed) return
+                // Cookies share RemoteCallbackList's binder identity and death cleanup.
+                callbacks.unregister(cb)
+                callbacks.register(cb, id)
             }
-            callbackIdMap[cb] = id
         }
 
-        private val broadcastMutex = Mutex()
+        override fun clearTraffic(profileIds: LongArray): Boolean = runBlocking(Dispatchers.IO) {
+            try {
+                io.nekohasekai.sagernet.bg.proto.TrafficPersistence.clear(profileIds.toList())
+                true
+            } catch (_: Exception) {
+                Logs.w("Traffic reset failed existing totals retained")
+                false
+            }
+        }
 
-        suspend fun broadcast(work: (ISagerNetServiceCallback) -> Unit) {
-            broadcastMutex.withLock {
+        private val connectionMonitors = ConnectionMonitorStreams()
+
+        override fun openConnectionMonitor(connectionId: String): ParcelFileDescriptor? {
+            val current = data ?: return null
+            if (current.state != State.Connected) return null
+            return current.proxy?.box?.let { connectionMonitors.open(it, connectionId) }
+        }
+
+        private fun callbackSnapshot(id: Int?): List<ISagerNetServiceCallback> =
+            synchronized(callbacksAccess) {
+                if (callbacksClosed) return@synchronized emptyList()
                 val count = callbacks.beginBroadcast()
                 try {
-                    repeat(count) {
-                        try {
-                            work(callbacks.getBroadcastItem(it))
-                        } catch (_: RemoteException) {
-                        } catch (_: Exception) {
+                    buildList {
+                        repeat(count) { index ->
+                            if (id == null || callbacks.getBroadcastCookie(index) == id) {
+                                add(callbacks.getBroadcastItem(index))
+                            }
                         }
                     }
                 } finally {
                     callbacks.finishBroadcast()
                 }
             }
+
+        suspend fun broadcast(id: Int? = null, work: (ISagerNetServiceCallback) -> Unit) {
+            // No registry lock or RemoteCallbackList broadcast is held across IPC.
+            for (callback in callbackSnapshot(id)) {
+                try { work(callback) }
+                catch (_: RemoteException) {}
+                catch (_: Exception) {}
+            }
         }
 
         override fun unregisterCallback(cb: ISagerNetServiceCallback) {
-            callbackIdMap.remove(cb)
-            callbacks.unregister(cb)
+            synchronized(callbacksAccess) { callbacks.unregister(cb) }
         }
 
         override fun urlTest(): Int {
@@ -169,7 +191,11 @@ class BaseService {
         }
 
         override fun close() {
-            callbacks.kill()
+            connectionMonitors.close()
+            synchronized(callbacksAccess) {
+                callbacksClosed = true
+                callbacks.kill()
+            }
             cancel()
             data = null
         }
@@ -249,13 +275,19 @@ class BaseService {
         }
 
         fun killProcesses() {
-            data.proxy?.close()
-            wakeLock?.apply {
-                release()
-                wakeLock = null
-            }
-            runOnDefaultDispatcher {
-                DefaultNetworkListener.stop(this)
+            synchronized(data) {
+                try {
+                    data.proxy?.close()
+                } finally {
+                    try {
+                        wakeLock?.let { lock ->
+                            try { lock.release() }
+                            finally { wakeLock = null }
+                        }
+                    } finally {
+                        runBlocking { DefaultNetworkListener.stop(this@Interface) }
+                    }
+                }
             }
         }
 
@@ -274,7 +306,10 @@ class BaseService {
                 data.startup.cancelAndJoin() // ensure stop connecting first
                 // we use a coroutineScope here to allow clean-up in parallel
                 coroutineScope {
-                    killProcesses()
+                    withContext(NonCancellable + Dispatchers.IO) {
+                        try { killProcesses() }
+                        catch (_: Exception) { Logs.w("Core teardown failed final traffic settlement attempted") }
+                    }
                     val data = data
                     if (data.closeReceiverRegistered) {
                         unregisterReceiver(data.receiver)
@@ -293,7 +328,7 @@ class BaseService {
         }
 
         fun persistStats() {
-            // TODO NEW save app stats?
+            runOnDefaultDispatcher { data.proxy?.looper?.checkpoint() }
         }
 
         // networks
@@ -433,10 +468,14 @@ class BaseService {
 
         fun destroyService() {
             data.scope.cancel()
-            try {
-                killProcesses()
-            } finally {
-                data.proxy = null
+            // onDestroy must not wait for native teardown or SQLite on the main thread.
+            runOnDefaultDispatcher {
+                data.startup.cancelAndJoin()
+                try { killProcesses() }
+                catch (_: Exception) { Logs.w("Core teardown failed final traffic settlement attempted") }
+                finally { data.proxy = null }
+            }
+            run {
                 data.notification?.destroy()
                 data.notification = null
                 if (data.closeReceiverRegistered) {

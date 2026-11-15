@@ -122,7 +122,7 @@ class SudokuSettingsTest : InstrumentationTestCase() {
         assertTrue(BuildConfig.DEBUG)
         assertEquals("Use the separate local Sudoku test installation", "app.sakurabox.client.sudoku.debug", BuildConfig.APPLICATION_ID)
         assertFalse(DataStore.serviceState.canStop)
-        assertTrue(Libcore.versionBox().contains("sudoku: "))
+        assertTrue(Libcore.versionBox().lineSequence().last().split(',').contains("with_sudoku"))
         val previousGroup = DataStore.selectedGroup
         val previousSelected = DataStore.selectedProxy
         val group = SagerDatabase.groupDao.createGroup(ProxyGroup(name = "Sudoku instrumentation ${System.nanoTime()}", type = GroupType.BASIC))

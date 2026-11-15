@@ -31,7 +31,7 @@ class VpnService : BaseVpnService(),
 
     }
 
-    var conn: ParcelFileDescriptor? = null
+    @Volatile var conn: ParcelFileDescriptor? = null
 
     private var metered = false
 
@@ -52,9 +52,14 @@ class VpnService : BaseVpnService(),
 
     @Suppress("EXPERIMENTAL_API_USAGE")
     override fun killProcesses() {
-        conn?.close()
-        conn = null
-        super.killProcesses()
+        synchronized(data) {
+            try {
+                conn?.close()
+            } finally {
+                conn = null
+                super.killProcesses()
+            }
+        }
     }
 
     override fun onBind(intent: Intent) = when (intent.action) {

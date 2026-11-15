@@ -9,6 +9,8 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import android.os.RemoteException
 import android.view.KeyEvent
 import android.view.MenuItem
@@ -46,6 +48,7 @@ import io.nekohasekai.sagernet.ktx.alert
 import io.nekohasekai.sagernet.ktx.isPreview
 import io.nekohasekai.sagernet.ktx.launchCustomTab
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
+import io.nekohasekai.sagernet.fmt.nakis.NakisShareLink
 import io.nekohasekai.sagernet.ktx.parseProxies
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
@@ -101,7 +104,7 @@ class MainActivity : ThemedActivity(),
         DataStore.configurationStore.registerChangeListener(this)
         GroupManager.userInterface = GroupInterfaceAdapter(this)
 
-        if (intent?.action == Intent.ACTION_VIEW) {
+        if (intent?.action == Intent.ACTION_VIEW || intent?.action == Intent.ACTION_SEND) {
             onNewIntent(intent)
         }
 
@@ -136,6 +139,14 @@ class MainActivity : ThemedActivity(),
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+
+        if (intent.action == Intent.ACTION_SEND) {
+            val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString() ?: return
+            if (text.trimStart().startsWith(NakisShareLink.PREFIX, ignoreCase = true)) {
+                runOnDefaultDispatcher { importProfile(text) }
+            }
+            return
+        }
 
         val uri = intent.data ?: return
 
@@ -218,10 +229,11 @@ class MainActivity : ThemedActivity(),
         GroupUpdater.startUpdate(subscription, true)
     }
 
-    suspend fun importProfile(uri: Uri) {
+    suspend fun importProfile(uri: Uri) = importProfile(uri.toString())
+
+    private suspend fun importProfile(text: String) {
         val profile = try {
-            ImportLimits.checkText(uri.toString())
-            parseProxies(uri.toString()).getOrNull(0) ?: error(getString(R.string.no_proxies_found))
+            parseProxies(text).getOrNull(0) ?: error(getString(R.string.no_proxies_found))
         } catch (e: Exception) {
             onMainDispatcher {
                 alert(e.readableMessage).show()
@@ -346,6 +358,7 @@ class MainActivity : ThemedActivity(),
             R.id.nav_settings -> displayFragment(SettingsFragment())
             R.id.nav_traffic -> displayFragment(WebviewFragment())
             R.id.nav_tools -> displayFragment(ToolsFragment())
+            R.id.nav_connections -> displayFragment(ConnectionsFragment())
             R.id.nav_logcat -> displayFragment(LogcatFragment())
             R.id.nav_about -> displayFragment(AboutFragment())
 
@@ -407,7 +420,7 @@ class MainActivity : ThemedActivity(),
     }
 
     override fun cbTrafficUpdate(data: TrafficData) {
-        runOnDefaultDispatcher {
+        lifecycleScope.launch {
             ProfileManager.postUpdate(data)
         }
     }

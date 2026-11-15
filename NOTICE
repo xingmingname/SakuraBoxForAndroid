@@ -51,3 +51,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 gradle/wrapper/gradle-wrapper.jar is the Gradle bootstrap binary, required to invoke the pinned Wrapper.
 Other APK/AAR/SO and private signing files are deliberately excluded from source distribution.
+
+Nakis client wire and scheduling code is adapted from n-yarvex/nakis at
+01be745ee68c737a685999d0cc7cb47c9fb048ea and synchronized to
+40ce887879cdfc00cd74c52f88a24da7c1a1be00. Copyright (c) 2026 nyarvex.
+See libcore/nakis/LICENSE for the MIT license.

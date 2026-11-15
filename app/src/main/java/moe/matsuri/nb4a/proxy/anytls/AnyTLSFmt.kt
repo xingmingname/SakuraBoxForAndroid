@@ -1,12 +1,23 @@
 package moe.matsuri.nb4a.proxy.anytls
 
+import com.google.gson.JsonObject
 import io.nekohasekai.sagernet.fmt.ConnectionSecurity
+import io.nekohasekai.sagernet.fmt.ProtocolOptions
 import io.nekohasekai.sagernet.ktx.linkBuilder
 import io.nekohasekai.sagernet.ktx.toLink
 import io.nekohasekai.sagernet.ktx.urlSafe
 import moe.matsuri.nb4a.SingBoxOptions
 import moe.matsuri.nb4a.utils.listByLineOrComma
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+
+internal fun anyTlsEchEnabled(options: JsonObject, pem: String?): Boolean {
+    val enabled = ProtocolOptions.get(options, "tls.ech.enabled")
+    return if (enabled?.isJsonPrimitive == true && enabled.asJsonPrimitive.isBoolean) {
+        enabled.asBoolean
+    } else {
+        !pem.isNullOrBlank()
+    }
+}
 
 fun buildSingBoxOutboundAnyTLSBean(bean: AnyTLSBean): SingBoxOptions.Outbound_AnyTLSOptions {
     val realityMode = ConnectionSecurity.mode(bean) == ConnectionSecurity.Mode.REALITY
@@ -31,7 +42,7 @@ fun buildSingBoxOutboundAnyTLSBean(bean: AnyTLSBean): SingBoxOptions.Outbound_An
                 }
             }
             bean.echConfig.takeIf { !realityMode && !it.isNullOrBlank() }?.let {
-                // In new version, some complex options will be deprecated, so we just do this.
+                // Legacy nodes infer ECH from PEM. Stored options override this in ProtocolOptions.applyTo.
                 ech = SingBoxOptions.OutboundECHOptions().apply {
                     enabled = true
                     config = it.lines().filter { line -> line.isNotBlank() }
@@ -93,6 +104,7 @@ fun importAnyTLSOutbound(json: String): AnyTLSBean? {
             if (!stringsValid(obj, listOf("fingerprint"))) return null
             bean.utlsFingerprint = obj.get("fingerprint")?.asString ?: "chrome"
             rest.remove("fingerprint")
+            rest.remove("enabled")
         } else {
             val config = obj.get("config") ?: continue // Keep dynamic ECH/DNS behavior as an explicit override.
             val configs = if (config.isJsonArray) config.asJsonArray.toList() else listOf(config)
@@ -101,7 +113,6 @@ fun importAnyTLSOutbound(json: String): AnyTLSBean? {
             if (bean.echConfig.isBlank()) continue // Empty config also means dynamic ECH; do not disable it.
             rest.remove("config")
         }
-        rest.remove("enabled")
         if (rest.size() == 0) tlsRemaining.remove(key)
     }
     if (tlsRemaining.size() == 0) remaining.remove("tls")
