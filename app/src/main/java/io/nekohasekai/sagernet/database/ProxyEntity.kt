@@ -8,6 +8,8 @@ import com.esotericsoftware.kryo.io.ByteBufferOutput
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.fmt.*
 import io.nekohasekai.sagernet.fmt.sudoku.SudokuBean
+import io.nekohasekai.sagernet.fmt.nakis.NakisBean
+import io.nekohasekai.sagernet.fmt.nakis.NakisShareLink
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.http.toUri
 import io.nekohasekai.sagernet.fmt.hysteria.*
@@ -70,6 +72,7 @@ data class ProxyEntity(
     var shadowTLSBean: ShadowTLSBean? = null,
     var anyTLSBean: AnyTLSBean? = null,
     var sudokuBean: SudokuBean? = null,
+    var nakisBean: NakisBean? = null,
     var chainBean: ChainBean? = null,
     var nekoBean: NekoBean? = null,
     var configBean: ConfigBean? = null,
@@ -93,6 +96,7 @@ data class ProxyEntity(
         const val TYPE_MIERU = 21
         const val TYPE_ANYTLS = 22
         const val TYPE_SUDOKU = 23
+        const val TYPE_NAKIS = 24
 
         const val TYPE_CONFIG = 998
         const val TYPE_NEKO = 999
@@ -178,6 +182,7 @@ data class ProxyEntity(
             TYPE_SHADOWTLS -> shadowTLSBean = KryoConverters.shadowTLSDeserialize(byteArray)
             TYPE_ANYTLS -> anyTLSBean = KryoConverters.anyTLSDeserialize(byteArray)
             TYPE_SUDOKU -> sudokuBean = KryoConverters.sudokuDeserialize(byteArray)
+            TYPE_NAKIS -> nakisBean = KryoConverters.nakisDeserialize(byteArray)
             TYPE_CHAIN -> chainBean = KryoConverters.chainDeserialize(byteArray)
             TYPE_NEKO -> nekoBean = KryoConverters.nekoDeserialize(byteArray)
             TYPE_CONFIG -> configBean = KryoConverters.configDeserialize(byteArray)
@@ -200,6 +205,7 @@ data class ProxyEntity(
         TYPE_SHADOWTLS -> "ShadowTLS"
         TYPE_ANYTLS -> "AnyTLS"
         TYPE_SUDOKU -> "Sudoku"
+        TYPE_NAKIS -> "Nakis"
         TYPE_CHAIN -> chainName
         TYPE_NEKO -> nekoBean!!.displayType()
         TYPE_CONFIG -> configBean!!.displayType()
@@ -226,6 +232,7 @@ data class ProxyEntity(
             TYPE_SHADOWTLS -> shadowTLSBean
             TYPE_ANYTLS -> anyTLSBean
             TYPE_SUDOKU -> sudokuBean
+            TYPE_NAKIS -> nakisBean
             TYPE_CHAIN -> chainBean
             TYPE_NEKO -> nekoBean
             TYPE_CONFIG -> configBean
@@ -242,6 +249,7 @@ data class ProxyEntity(
 
     fun haveStandardLink(): Boolean {
         if (io.nekohasekai.sagernet.fmt.NodeJson.enabled(requireBean())) return false
+        (requireBean() as? NakisBean)?.let { return NakisShareLink.export(it) != null }
         (requireBean() as? SudokuBean)?.let {
             return io.nekohasekai.sagernet.fmt.sudoku.SudokuShareLink.export(it) != null
         }
@@ -261,6 +269,7 @@ data class ProxyEntity(
 
     fun toStdLink(compact: Boolean = false): String = with(requireBean()) {
         if (io.nekohasekai.sagernet.fmt.NodeJson.enabled(this)) return@with toUniversalLink()
+        if (this is NakisBean) return@with NakisShareLink.export(this) ?: toUniversalLink()
         if (this is SudokuBean) return@with io.nekohasekai.sagernet.fmt.sudoku.SudokuShareLink.export(this) ?: toUniversalLink()
         if (io.nekohasekai.sagernet.fmt.ProtocolOptions.hasAdvancedOptions(this) ||
             (this is AnyTLSBean && (!echConfig.isNullOrBlank() || !alpn.isNullOrBlank() || !certificates.isNullOrBlank()))) {
@@ -382,6 +391,7 @@ data class ProxyEntity(
         shadowTLSBean = null
         anyTLSBean = null
         sudokuBean = null
+        nakisBean = null
         chainBean = null
         configBean = null
         nekoBean = null
@@ -452,6 +462,11 @@ data class ProxyEntity(
                 shadowTLSBean = bean
             }
 
+            is NakisBean -> {
+                type = TYPE_NAKIS
+                nakisBean = bean
+            }
+
             is SudokuBean -> {
                 type = TYPE_SUDOKU
                 sudokuBean = bean
@@ -500,6 +515,7 @@ data class ProxyEntity(
                 TYPE_SHADOWTLS -> ShadowTLSSettingsActivity::class.java
                 TYPE_ANYTLS -> AnyTLSSettingsActivity::class.java
                 TYPE_SUDOKU -> SudokuSettingsActivity::class.java
+                TYPE_NAKIS -> NakisSettingsActivity::class.java
                 TYPE_CHAIN -> ChainSettingsActivity::class.java
                 TYPE_CONFIG -> ConfigSettingActivity::class.java
                 else -> throw IllegalArgumentException()
@@ -511,67 +527,89 @@ data class ProxyEntity(
     }
 
     @androidx.room.Dao
-    interface Dao {
+    abstract class Dao {
 
         @Query("select * from proxy_entities")
-        fun getAll(): List<ProxyEntity>
+        abstract fun getAll(): List<ProxyEntity>
 
         @Query("SELECT id FROM proxy_entities WHERE groupId = :groupId ORDER BY userOrder")
-        fun getIdsByGroup(groupId: Long): List<Long>
+        abstract fun getIdsByGroup(groupId: Long): List<Long>
 
         @Query("SELECT * FROM proxy_entities WHERE groupId = :groupId ORDER BY userOrder")
-        fun getByGroup(groupId: Long): List<ProxyEntity>
+        abstract fun getByGroup(groupId: Long): List<ProxyEntity>
 
         @Query("SELECT * FROM proxy_entities WHERE id in (:proxyIds)")
-        fun getEntities(proxyIds: List<Long>): List<ProxyEntity>
+        abstract fun getEntities(proxyIds: List<Long>): List<ProxyEntity>
 
         @Query("SELECT COUNT(*) FROM proxy_entities WHERE groupId = :groupId")
-        fun countByGroup(groupId: Long): Long
+        abstract fun countByGroup(groupId: Long): Long
 
         @Query("SELECT  MAX(userOrder) + 1 FROM proxy_entities WHERE groupId = :groupId")
-        fun nextOrder(groupId: Long): Long?
+        abstract fun nextOrder(groupId: Long): Long?
 
         @Query("SELECT * FROM proxy_entities WHERE id = :proxyId")
-        fun getById(proxyId: Long): ProxyEntity?
+        abstract fun getById(proxyId: Long): ProxyEntity?
 
         @Query("DELETE FROM proxy_entities WHERE id IN (:proxyId)")
-        fun deleteById(proxyId: Long): Int
+        abstract fun deleteById(proxyId: Long): Int
 
         @Query("DELETE FROM proxy_entities WHERE groupId = :groupId")
-        fun deleteByGroup(groupId: Long)
+        abstract fun deleteByGroup(groupId: Long)
 
         @Query("DELETE FROM proxy_entities WHERE groupId in (:groupId)")
-        fun deleteByGroup(groupId: LongArray)
+        abstract fun deleteByGroup(groupId: LongArray)
 
         @Delete
-        fun deleteProxy(proxy: ProxyEntity): Int
+        abstract fun deleteProxy(proxy: ProxyEntity): Int
 
         @Delete
-        fun deleteProxy(proxies: List<ProxyEntity>): Int
+        abstract fun deleteProxy(proxies: List<ProxyEntity>): Int
 
         @Update
-        fun updateProxy(proxy: ProxyEntity): Int
+        protected abstract fun updateProxyRow(proxy: ProxyEntity): Int
+
+        // Configuration writers must never restore a stale traffic snapshot.
+        @androidx.room.Transaction
+        open fun updateProxy(proxy: ProxyEntity): Int {
+            val current = getTraffic(proxy.id) ?: return 0
+            proxy.rx = current.rx
+            proxy.tx = current.tx
+            return updateProxyRow(proxy)
+        }
 
         @Query("UPDATE proxy_entities SET status = :status, ping = :ping, error = :error WHERE id = :id")
-        fun updateTestResult(id: Long, status: Int, ping: Int, error: String?): Int
+        abstract fun updateTestResult(id: Long, status: Int, ping: Int, error: String?): Int
 
         @Query("UPDATE proxy_entities SET rx = :rx, tx = :tx WHERE id = :id")
-        fun updateTraffic(id: Long, rx: Long, tx: Long): Int
+        abstract fun updateTraffic(id: Long, rx: Long, tx: Long): Int
 
-        @Update
-        fun updateProxy(proxies: List<ProxyEntity>): Int
+        @androidx.room.Transaction
+        open fun updateProxy(proxies: List<ProxyEntity>): Int =
+            proxies.sumOf { updateProxy(it) }
+
+        @Query("SELECT id, rx, tx FROM proxy_entities WHERE id = :id")
+        abstract fun getTraffic(id: Long): ProxyTraffic?
+
+        @Query("SELECT id, rx, tx FROM proxy_entities WHERE id IN (:ids)")
+        abstract fun getTraffic(ids: List<Long>): List<ProxyTraffic>
+
+        @Query("UPDATE proxy_entities SET rx = rx + :rx, tx = tx + :tx WHERE id = :id")
+        abstract fun addTraffic(id: Long, rx: Long, tx: Long): Int
+
+        @Query("UPDATE proxy_entities SET rx = 0, tx = 0 WHERE id IN (:ids)")
+        abstract fun clearTraffic(ids: List<Long>): Int
 
         @Insert
-        fun addProxy(proxy: ProxyEntity): Long
+        abstract fun addProxy(proxy: ProxyEntity): Long
 
         @Insert
-        fun insert(proxies: List<ProxyEntity>)
+        abstract fun insert(proxies: List<ProxyEntity>)
 
         @Query("DELETE FROM proxy_entities WHERE groupId = :groupId")
-        fun deleteAll(groupId: Long): Int
+        abstract fun deleteAll(groupId: Long): Int
 
         @Query("DELETE FROM proxy_entities")
-        fun reset()
+        abstract fun reset()
 
     }
 

@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$CoreAar,[string]$RunDirectory,[string[]]$Tasks=@('testOssDebugUnitTest','assembleOssDebug','assembleOssDebugAndroidTest'),[switch]$ResumeIncomplete,[string]$JavaHome=$env:JAVA_HOME,[string]$AndroidHome=$env:ANDROID_HOME,[string]$GradleExecutable,[string]$GradleUserHome=$env:GRADLE_USER_HOME,[string]$DebugKey)
+param([Parameter(Mandatory=$true)][string]$CoreAar,[string]$RunDirectory,[string[]]$Tasks=@('assembleOssDebug','assembleOssRelease'),[switch]$ResumeIncomplete,[string]$JavaHome=$env:JAVA_HOME,[string]$AndroidHome=$env:ANDROID_HOME,[string]$GradleExecutable,[string]$GradleUserHome=$env:GRADLE_USER_HOME,[string]$DebugKey)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 . (Join-Path $PSScriptRoot 'build-cache.ps1')
@@ -25,7 +25,6 @@ if (Test-Path -LiteralPath $debugKey) {
     Copy-Item -LiteralPath $debugKey -Destination (Join-Path $javaAndroidHome 'debug.keystore')
 }
 $env:NEKO_LOCAL_BUILD_ROOT=Join-Path $RunDirectory 'build'
-$env:NEKO_CONFIG_FIXTURES=Join-Path $RunDirectory 'config-fixtures'
 Write-SakuraBuildRetention -RunDirectory $RunDirectory -Kind android -Caches @{gradle_user_home=$env:GRADLE_USER_HOME;project_cache=(Join-Path $RunDirectory 'project-cache');build=(Join-Path $RunDirectory 'build')}
 $env:PATH="$env:JAVA_HOME\bin;$env:PATH"
 $gradle=if ($GradleExecutable) {$GradleExecutable} else {Join-Path $root 'gradlew.bat'}

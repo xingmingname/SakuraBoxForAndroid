@@ -5,6 +5,8 @@
 .DS_Store
 .gradle/
 .kotlin/
+.pytest_cache/
+.ruff_cache/
 build/
 .externalNativeBuild/
 .cxx/
@@ -69,3 +71,26 @@ SAKURABOX_*_REVIEW.md
 /jniLibs/
 /libcore/.build*/
 /library/libcore_build/
+
+# Local diagnostics and disposable build or test outputs.
+/.private-audits/
+/.reports/
+/.scratch/
+/.tmp/
+/tools/local/
+*.tmp
+*.swp
+*.trace
+*.hprof
+*.apks
+*.idsig
+
+# Repository-local regression suites and private test workspace copies
+/.local-tests/
+/app/src/test/
+/app/src/androidTest/
+/libcore/**/*_test.go
+/libcore/**/testdata/
+/tools/tests/
+/tools/__pycache__/
+/CHANGELOG.md

@@ -186,6 +186,24 @@ func (c *lifecycleConn) Close() error      { c.release(); return c.Conn.Close() 
 func (c *lifecycleConn) CloseRead() error  { return connutil.TryCloseRead(c.Conn) }
 func (c *lifecycleConn) CloseWrite() error { return connutil.TryCloseWrite(c.Conn) }
 
+func (c *lifecycleConn) EnableStreamCancellation() {
+	if stream, ok := c.Conn.(interface{ EnableStreamCancellation() }); ok {
+		stream.EnableStreamCancellation()
+	}
+}
+
+func (c *lifecycleConn) Abort() error {
+	c.release()
+	return abortStream(c.Conn)
+}
+
+func abortStream(conn net.Conn) error {
+	if stream, ok := conn.(interface{ Abort() error }); ok {
+		return stream.Abort()
+	}
+	return conn.Close()
+}
+
 func bindConnection(ctx context.Context, conn net.Conn, release func()) net.Conn {
 	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
 	return &lifecycleConn{Conn: conn, release: func() { stop(); release() }}

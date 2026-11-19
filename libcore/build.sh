@@ -7,8 +7,8 @@ SRC_ROOT="${SRC_ROOT:-$(cd .. && pwd)}"
 BUILD="${BUILD_DIR:-.build-sing-box-1.14.3-sudoku}"
 GOMOBILE_BIN="${GOMOBILE_BIN:-$SRC_ROOT/.build-deps/bin}"
 OUTPUT_DIR="${OUTPUT_DIR:-$SRC_ROOT/.build-deps/outputs}"
-OUTPUT_AAR="${OUTPUT_AAR:-$OUTPUT_DIR/libcore-sing-box-1.14.3-sakura-sudoku.aar}"
-APP_AAR="${APP_AAR:-$SRC_ROOT/app/libs/libcore-sing-box-1.14.3-sakura-sudoku.aar}"
+OUTPUT_AAR="${OUTPUT_AAR:-$OUTPUT_DIR/libcore-sing-box-1.14.3-sakura-with_nakis.aar}"
+APP_AAR="${APP_AAR:-$SRC_ROOT/app/libs/libcore-sing-box-1.14.3-sakura-with_nakis.aar}"
 if [ -e "$OUTPUT_AAR" ] || [ -e "$APP_AAR" ]; then
   echo "Refusing to overwrite an existing AAR. Set new OUTPUT_AAR and APP_AAR paths."
   exit 1

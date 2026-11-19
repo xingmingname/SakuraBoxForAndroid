@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="brand_theme_menu">主题</string>
+    <string name="brand_theme_sakura">默认主题</string>
+    <string name="brand_theme_neko">经典主题</string>
+    <string name="brand_theme_card_description">%1$s，%2$s</string>
+    <string name="brand_theme_failure">无法切换品牌主题</string>
+    <string name="brand_custom">自定义主题</string>
+    <string name="brand_custom_theme_name">主题名称</string>
+    <string name="brand_custom_tile_title">快捷设置磁贴名称</string>
+    <string name="brand_custom_app_icon">应用图标</string>
+    <string name="brand_custom_notice_icon">通知栏图标</string>
+    <string name="brand_custom_tile_icon">快捷设置磁贴图标</string>
+    <string name="brand_custom_import">导入图片</string>
+    <string name="brand_custom_restore_icon">恢复默认图标</string>
+    <string name="brand_custom_image_title">图片裁剪</string>
+    <string name="brand_custom_fit">保留完整图片</string>
+    <string name="brand_custom_crop">居中裁剪为方形</string>
+    <string name="brand_custom_image_error">无法读取此图片</string>
+    <string name="brand_custom_mask_empty">未找到清晰轮廓 请尝试透明背景图片或更改裁剪方式</string>
+    <string name="brand_custom_save">保存并应用</string>
+    <string name="brand_custom_reset">恢复默认设置</string>
+    <string name="brand_tile_with_node">%1$s · %2$s</string>
+    <string name="service_vpn_status">VPN 状态</string>
+</resources>

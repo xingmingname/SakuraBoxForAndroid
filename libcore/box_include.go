@@ -3,6 +3,7 @@ package libcore
 import (
 	"context"
 
+	"libcore/nakis"
 	"libcore/sudoku"
 
 	"github.com/sagernet/sing-box/adapter"
@@ -81,6 +82,7 @@ func nekoboxAndroidOutboundRegistry() *outbound.Registry {
 	vless.RegisterOutbound(registry)
 	anytls.RegisterOutbound(registry)
 	sudoku.RegisterOutbound(registry)
+	nakis.RegisterOutbound(registry)
 
 	hysteria.RegisterOutbound(registry)
 	tuic.RegisterOutbound(registry)

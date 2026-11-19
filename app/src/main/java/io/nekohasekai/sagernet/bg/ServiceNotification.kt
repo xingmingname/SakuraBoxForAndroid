@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.bg
 
+import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
 import android.content.BroadcastReceiver
@@ -15,32 +16,26 @@ import io.nekohasekai.sagernet.Action
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.SpeedDisplayData
+import io.nekohasekai.sagernet.branding.BrandNotificationIcon
+import io.nekohasekai.sagernet.branding.BrandThemeManager
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
+import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ui.SwitchActivity
 import io.nekohasekai.sagernet.utils.Theme
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-/**
- * User can customize visibility of notification since Android 8.
- * The default visibility:
- *
- * Android 8.x: always visible due to system limitations
- * VPN:         always invisible because of VPN notification/icon
- * Other:       always visible
- *
- * See also: https://github.com/aosp-mirror/platform_frameworks_base/commit/070d142993403cc2c42eca808ff3fafcee220ac4
- */
 class ServiceNotification(
     private val service: BaseService.Interface, title: String,
-    channel: String, visible: Boolean = false,
+    channel: String,
 ) : BroadcastReceiver() {
     companion object {
-        const val notificationId = 1
+        const val notificationId = ForegroundNotificationPublisher.NOTIFICATION_ID
         val flags =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
 
@@ -51,7 +46,7 @@ class ServiceNotification(
         }
     }
 
-    var listenPostSpeed = true
+    @Volatile var listenPostSpeed = true
 
     suspend fun postNotificationSpeedUpdate(stats: SpeedDisplayData) {
         useBuilder {
@@ -89,14 +84,14 @@ class ServiceNotification(
                 )
             )
         }
-        update()
+        publish()
     }
 
     suspend fun postNotificationTitle(newTitle: String) {
         useBuilder {
             it.setContentTitle(newTitle)
         }
-        update()
+        publish()
     }
 
     suspend fun postNotificationWakeLockStatus(acquired: Boolean) {
@@ -105,7 +100,7 @@ class ServiceNotification(
             it.priority =
                 if (acquired) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_LOW
         }
-        update()
+        publish()
     }
 
     private val showDirectSpeed = DataStore.showDirectSpeed
@@ -116,11 +111,26 @@ class ServiceNotification(
         .setContentTitle(title)
         .setOnlyAlertOnce(true)
         .setContentIntent(SagerNet.configureIntent(service))
-        .setSmallIcon(R.drawable.ic_sakura_notification)
         .setCategory(NotificationCompat.CATEGORY_SERVICE)
-        .setPriority(if (visible) NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_MIN)
+        .setPriority(NotificationCompat.PRIORITY_LOW)
 
     private val buildLock = Mutex()
+    private val foregroundLock = Any()
+    private var closed = false
+    private val serviceContext: Service = service as Service
+    private val publisher = ForegroundNotificationPublisher(
+        serviceContext,
+        builder,
+        foreground = { id, notification ->
+            if (Build.VERSION.SDK_INT >= 34) {
+                serviceContext.startForeground(id, notification, FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED)
+            } else {
+                serviceContext.startForeground(id, notification)
+            }
+        },
+        update = { id, notification -> NotificationManagerCompat.from(serviceContext).notify(id, notification) },
+    )
+    private val brandUpdates: AutoCloseable
 
     private suspend fun useBuilder(f: (NotificationCompat.Builder) -> Unit) {
         buildLock.withLock {
@@ -139,14 +149,22 @@ class ServiceNotification(
             addAction(Intent.ACTION_SCREEN_ON)
             addAction(Intent.ACTION_SCREEN_OFF)
         })
-
+        brandUpdates = BrandThemeManager.observe(service) {
+            service.data.scope.launch {
+                try {
+                    publish(onlyIfIconChanged = true)
+                } catch (error: SecurityException) {
+                    Logs.w(error)
+                }
+            }
+        }
     }
 
     // Called in the service startup job. Foreground failures propagate to its
     // existing error/cleanup path instead of leaving a connected background VPN.
     suspend fun initialize() {
         updateActions()
-        show()
+        publish(allowInitial = true)
     }
 
     private suspend fun updateActions() {
@@ -185,30 +203,78 @@ class ServiceNotification(
     }
 
 
-    private suspend fun show() =
-        useBuilder {
-            if (Build.VERSION.SDK_INT >= 34) {
-                (service as Service).startForeground(
-                    notificationId,
-                    it.build(),
-                    FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
-                )
-            } else {
-                (service as Service).startForeground(notificationId, it.build())
+    private suspend fun publish(allowInitial: Boolean = false, onlyIfIconChanged: Boolean = false) {
+        buildLock.withLock {
+            synchronized(foregroundLock) {
+                if (closed || (!allowInitial && !publisher.hasPublished)) return
+                val icon = BrandThemeManager.appearance(service as Context).notificationIcon()
+                publisher.publish(icon, onlyIfIconChanged)
             }
         }
-
-    private suspend fun update() = useBuilder {
-        NotificationManagerCompat.from(service as Service).notify(notificationId, it.build())
     }
 
     fun destroy() {
-        listenPostSpeed = false
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            (service as Service).stopForeground(Service.STOP_FOREGROUND_REMOVE)
-        } else {
-            (service as Service).stopForeground(true)
+        synchronized(foregroundLock) {
+            if (closed) return
+            closed = true
+            listenPostSpeed = false
+            val context = service as Service
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    context.stopForeground(Service.STOP_FOREGROUND_REMOVE)
+                } else {
+                    context.stopForeground(true)
+                }
+            } finally {
+                try {
+                    brandUpdates.close()
+                } finally {
+                    context.unregisterReceiver(this)
+                }
+            }
         }
-        service.unregisterReceiver(this)
+    }
+}
+
+
+// The service protects this publisher with its builder and foreground lifecycle locks.
+internal class ForegroundNotificationPublisher(
+    private val context: Context,
+    private val builder: NotificationCompat.Builder,
+    private val foreground: (Int, Notification) -> Unit,
+    private val update: (Int, Notification) -> Unit,
+) {
+    companion object {
+        const val NOTIFICATION_ID = 1
+    }
+
+    private var postedIcon: BrandNotificationIcon? = null
+    val hasPublished: Boolean get() = postedIcon != null
+
+    fun publish(icon: BrandNotificationIcon, onlyIfIconChanged: Boolean = false) {
+        val iconChanged = postedIcon != icon
+        if (onlyIfIconChanged && !iconChanged) return
+
+        icon.applyTo(context, builder)
+        val notification = builder.build()
+        if (!hasPublished) {
+            foreground(NOTIFICATION_ID, notification)
+        } else if (iconChanged) {
+            try {
+                // Re-submit the same ID to ActivityManager as well as updating the
+                // notification. This uses the service's current foreground instance.
+                foreground(NOTIFICATION_ID, notification)
+            } catch (error: SecurityException) {
+                Logs.w(error)
+                update(NOTIFICATION_ID, notification)
+            } catch (error: IllegalStateException) {
+                // Some systems re-check foreground-start eligibility on re-submission.
+                Logs.w(error)
+                update(NOTIFICATION_ID, notification)
+            }
+        } else {
+            update(NOTIFICATION_ID, notification)
+        }
+        postedIcon = icon
     }
 }

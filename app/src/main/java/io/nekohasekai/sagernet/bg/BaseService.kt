@@ -5,14 +5,14 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.os.*
+import android.os.Build
+import android.os.IBinder
+import android.os.PowerManager
 import android.widget.Toast
 import io.nekohasekai.sagernet.Action
 import io.nekohasekai.sagernet.BootReceiver
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
-import io.nekohasekai.sagernet.aidl.ISagerNetService
-import io.nekohasekai.sagernet.aidl.ISagerNetServiceCallback
 import io.nekohasekai.sagernet.bg.proto.ProxyInstance
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.SagerDatabase
@@ -22,10 +22,7 @@ import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager
 import io.nekohasekai.sagernet.utils.DefaultNetworkListener
 import kotlinx.coroutines.*
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import libcore.Libcore
-import moe.matsuri.nb4a.Protocols
 import moe.matsuri.nb4a.utils.Util
 import java.net.UnknownHostException
 
@@ -45,8 +42,12 @@ class BaseService {
     interface ExpectedException
 
     class Data internal constructor(private val service: Interface) {
-        var state = State.Stopped
-        var proxy: ProxyInstance? = null
+        @Volatile var state = State.Stopped
+        @Volatile var connectedAt = 0L
+            private set
+
+        val tunRunning get() = (service as? VpnService)?.conn != null
+        @Volatile var proxy: ProxyInstance? = null
         var notification: ServiceNotification? = null
 
         val receiver = broadcastReceiver { ctx, intent ->
@@ -82,96 +83,17 @@ class BaseService {
         }
         var closeReceiverRegistered = false
 
-        val binder = Binder(this)
+        internal val binder = ServiceBinder(this)
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         val startup = ServiceStartup(scope)
         val connectingJob: Job? get() = startup.job
 
         fun changeState(s: State, msg: String? = null) {
             if (state == s && msg == null) return
+            if (state != s) connectedAt = if (s == State.Connected) android.os.SystemClock.elapsedRealtime() else 0L
             state = s
             DataStore.serviceState = s
             binder.stateChanged(s, msg)
-        }
-    }
-
-    class Binder(private var data: Data? = null) : ISagerNetService.Stub(), CoroutineScope,
-        AutoCloseable {
-        private val callbacks = object : RemoteCallbackList<ISagerNetServiceCallback>() {
-            override fun onCallbackDied(callback: ISagerNetServiceCallback?, cookie: Any?) {
-                super.onCallbackDied(callback, cookie)
-            }
-        }
-
-        val callbackIdMap = mutableMapOf<ISagerNetServiceCallback, Int>()
-
-        override val coroutineContext = Dispatchers.Main.immediate + Job()
-
-        override fun getState(): Int = (data?.state ?: State.Idle).ordinal
-        override fun getProfileName(): String = data?.proxy?.displayProfileName ?: "Idle"
-
-        override fun registerCallback(cb: ISagerNetServiceCallback, id: Int) {
-            if (id == SagerConnection.CONNECTION_ID_RESTART_BG) {
-                Runtime.getRuntime().exit(0)
-                return
-            }
-            if (!callbackIdMap.contains(cb)) {
-                callbacks.register(cb)
-            }
-            callbackIdMap[cb] = id
-        }
-
-        private val broadcastMutex = Mutex()
-
-        suspend fun broadcast(work: (ISagerNetServiceCallback) -> Unit) {
-            broadcastMutex.withLock {
-                val count = callbacks.beginBroadcast()
-                try {
-                    repeat(count) {
-                        try {
-                            work(callbacks.getBroadcastItem(it))
-                        } catch (_: RemoteException) {
-                        } catch (_: Exception) {
-                        }
-                    }
-                } finally {
-                    callbacks.finishBroadcast()
-                }
-            }
-        }
-
-        override fun unregisterCallback(cb: ISagerNetServiceCallback) {
-            callbackIdMap.remove(cb)
-            callbacks.unregister(cb)
-        }
-
-        override fun urlTest(): Int {
-            if (data?.proxy?.box == null) {
-                error("core not started")
-            }
-            try {
-                return Libcore.urlTest(
-                    data!!.proxy!!.box, DataStore.connectionTestURL, 3000
-                )
-            } catch (e: Exception) {
-                error(Protocols.genFriendlyMsg(e.readableMessage))
-            }
-        }
-
-        fun stateChanged(s: State, msg: String?) = launch {
-            val profileName = profileName
-            broadcast { it.stateChanged(s.ordinal, profileName, msg) }
-        }
-
-        fun missingPlugin(pluginName: String) = launch {
-            val profileName = profileName
-            broadcast { it.missingPlugin(profileName, pluginName) }
-        }
-
-        override fun close() {
-            callbacks.kill()
-            cancel()
-            data = null
         }
     }
 
@@ -249,13 +171,19 @@ class BaseService {
         }
 
         fun killProcesses() {
-            data.proxy?.close()
-            wakeLock?.apply {
-                release()
-                wakeLock = null
-            }
-            runOnDefaultDispatcher {
-                DefaultNetworkListener.stop(this)
+            synchronized(data) {
+                try {
+                    data.proxy?.close()
+                } finally {
+                    try {
+                        wakeLock?.let { lock ->
+                            try { lock.release() }
+                            finally { wakeLock = null }
+                        }
+                    } finally {
+                        runBlocking { DefaultNetworkListener.stop(this@Interface) }
+                    }
+                }
             }
         }
 
@@ -274,7 +202,10 @@ class BaseService {
                 data.startup.cancelAndJoin() // ensure stop connecting first
                 // we use a coroutineScope here to allow clean-up in parallel
                 coroutineScope {
-                    killProcesses()
+                    withContext(NonCancellable + Dispatchers.IO) {
+                        try { killProcesses() }
+                        catch (_: Exception) { Logs.w("Core teardown failed final traffic settlement attempted") }
+                    }
                     val data = data
                     if (data.closeReceiverRegistered) {
                         unregisterReceiver(data.receiver)
@@ -293,7 +224,7 @@ class BaseService {
         }
 
         fun persistStats() {
-            // TODO NEW save app stats?
+            runOnDefaultDispatcher { data.proxy?.looper?.checkpoint() }
         }
 
         // networks
@@ -433,10 +364,14 @@ class BaseService {
 
         fun destroyService() {
             data.scope.cancel()
-            try {
-                killProcesses()
-            } finally {
-                data.proxy = null
+            // onDestroy must not wait for native teardown or SQLite on the main thread.
+            runOnDefaultDispatcher {
+                data.startup.cancelAndJoin()
+                try { killProcesses() }
+                catch (_: Exception) { Logs.w("Core teardown failed final traffic settlement attempted") }
+                finally { data.proxy = null }
+            }
+            run {
                 data.notification?.destroy()
                 data.notification = null
                 if (data.closeReceiverRegistered) {

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="menu_connections">仪表盘</string>
+    <string name="monitor_active_count">活动连接数</string>
+    <string name="monitor_memory">内存占用</string>
+    <string name="monitor_memory_scope">核心后台进程 RSS 包含该进程的 Java 和 Native 内存 并非整个应用总内存</string>
+    <string name="monitor_disconnected">未连接</string>
+    <string name="monitor_unavailable">不可用</string>
+    <string name="monitor_unknown">未知</string>
+    <string name="monitor_no_connections">暂无活动连接</string>
+    <string name="monitor_protocol_port">%1$s  端口 %2$s</string>
+    <string name="monitor_row_traffic">↑ %1$s  ↓ %2$s  %3$s</string>
+    <string name="monitor_details">连接详情</string>
+    <string name="monitor_connection_state">连接状态</string>
+    <string name="monitor_domain">目标域名</string>
+    <string name="monitor_destination">目标 IP</string>
+    <string name="monitor_destination_port">目标端口</string>
+    <string name="monitor_source">源 IP 和端口</string>
+    <string name="monitor_protocol">网络协议</string>
+    <string name="monitor_created_at">建立时间</string>
+    <string name="monitor_duration">持续时间</string>
+    <string name="monitor_upload">累计上传流量</string>
+    <string name="monitor_download">累计下载流量</string>
+    <string name="monitor_outbound">出站</string>
+    <string name="monitor_chain">内核记录的出站路径</string>
+    <string name="monitor_rule">匹配的路由规则</string>
+    <string name="monitor_application">应用名称及包名</string>
+    <string name="monitor_closed">已关闭</string>
+    <string name="monitor_active">活动</string>
+</resources>

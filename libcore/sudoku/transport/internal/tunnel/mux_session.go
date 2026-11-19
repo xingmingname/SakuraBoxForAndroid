@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -73,6 +74,8 @@ type muxSession struct {
 	pendMu       sync.Mutex
 	pending      []byte
 	spare        []byte
+	writeKick    chan struct{}
+	writeSpace   chan struct{}
 
 	streamsMu sync.Mutex
 	streams   map[uint32]*muxStream
@@ -98,6 +101,7 @@ func newMuxSession(conn net.Conn, onOpen func(stream *muxStream, payload []byte)
 		closed:       make(chan struct{}),
 		onOpen:       onOpen,
 		pongRequests: make(chan struct{}, 1),
+		writeKick:    make(chan struct{}, 1),
 	}
 	s.lastPong.Store(time.Now().UnixNano())
 	go s.readLoop()
@@ -209,13 +213,66 @@ func (s *muxSession) sendFrame(frameType byte, streamID uint32, payload []byte) 
 // goroutine is already writing, which picks the frame up when it finishes its current write.
 func (s *muxSession) sendQueued(frameType byte, streamID uint32, payload []byte) error {
 	s.pendMu.Lock()
-	buf := append(s.pending, frameType)
-	buf = binary.BigEndian.AppendUint32(buf, streamID)
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(payload)))
-	s.pending = append(buf, payload...)
+	s.queueFrame(frameType, streamID, payload)
 	full := len(s.pending) >= muxCoalesceMaxPending
 	s.pendMu.Unlock()
 	return s.flushPending(full)
+}
+
+// queueFrame appends a frame with pendMu held.
+func (s *muxSession) queueFrame(frameType byte, streamID uint32, payload []byte) {
+	b := append(s.pending, frameType)
+	b = binary.BigEndian.AppendUint32(b, streamID)
+	b = binary.BigEndian.AppendUint32(b, uint32(len(payload)))
+	s.pending = append(b, payload...)
+}
+
+// Interruptible streams enqueue complete frames so that canceling a stream
+// never interrupts a partially written frame on the shared connection.
+func (s *muxSession) queueStreamData(c *muxStream, payload []byte) error {
+	for {
+		select {
+		case <-c.done:
+			return c.closedErr()
+		case <-s.closed:
+			return s.closedErr()
+		case <-c.writeDeadline.Wait():
+			return os.ErrDeadlineExceeded
+		default:
+		}
+		s.pendMu.Lock()
+		select {
+		case <-c.done:
+			s.pendMu.Unlock()
+			return c.closedErr()
+		default:
+		}
+		if len(s.pending)+muxHeaderSize+len(payload) <= muxCoalesceMaxPending {
+			s.queueFrame(muxFrameData, c.id, payload)
+			s.wroteSinceTick.Store(true)
+			s.pendMu.Unlock()
+			s.kickWriter()
+			return nil
+		}
+		if s.writeSpace == nil {
+			s.writeSpace = make(chan struct{})
+		}
+		space := s.writeSpace
+		s.pendMu.Unlock()
+		select {
+		case <-space:
+		case <-c.done:
+		case <-s.closed:
+		case <-c.writeDeadline.Wait():
+		}
+	}
+}
+
+func (s *muxSession) kickWriter() {
+	select {
+	case s.writeKick <- struct{}{}:
+	default:
+	}
 }
 
 // flushPending writes the pending batch. Unless wait is set it gives up when another goroutine
@@ -249,6 +306,10 @@ func (s *muxSession) writePendingLocked() error {
 	buf := s.pending
 	s.pending = s.spare[:0]
 	s.spare = nil
+	if s.writeSpace != nil {
+		close(s.writeSpace)
+		s.writeSpace = nil
+	}
 	s.pendMu.Unlock()
 	if len(buf) == 0 {
 		s.recycleBatch(buf)
@@ -365,6 +426,8 @@ func (s *muxSession) controlLoop() {
 		select {
 		case <-s.pongRequests:
 			_ = s.sendFrame(muxFramePong, 0, nil)
+		case <-s.writeKick:
+			_ = s.flushPending(true)
 		case <-s.closed:
 			return
 		}

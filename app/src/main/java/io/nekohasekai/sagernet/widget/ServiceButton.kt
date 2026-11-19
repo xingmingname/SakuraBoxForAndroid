@@ -17,6 +17,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.progressindicator.BaseProgressIndicator
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.bg.BaseService
+import io.nekohasekai.sagernet.branding.BrandTheme
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import java.util.*
@@ -41,13 +42,18 @@ class ServiceButton @JvmOverloads constructor(
     }
 
     private inner class AnimatedState(
-        @DrawableRes resId: Int,
+        @DrawableRes sakuraRes: Int,
+        @DrawableRes nekoRes: Int,
         private val onStart: BaseProgressIndicator<*>.() -> Unit = { hideProgress() }
     ) {
-        val icon: AnimatedVectorDrawableCompat =
+        private fun loadIcon(@DrawableRes resId: Int): AnimatedVectorDrawableCompat =
             AnimatedVectorDrawableCompat.create(context, resId)!!.apply {
                 registerAnimationCallback(this@ServiceButton.callback)
             }
+
+        private val sakuraIcon by lazy { loadIcon(sakuraRes) }
+        private val nekoIcon by lazy { loadIcon(nekoRes) }
+        val icon: AnimatedVectorDrawableCompat get() = if (brand == BrandTheme.NEKO) nekoIcon else sakuraIcon
 
         fun start() {
             setImageDrawable(icon)
@@ -55,12 +61,20 @@ class ServiceButton @JvmOverloads constructor(
             progress.onStart()
         }
 
+        fun showFrame() {
+            setImageDrawable(icon)
+            icon.start()
+            icon.stop()
+        }
+
         fun stop() = icon.stop()
     }
 
-    private val iconStopped by lazy { AnimatedState(R.drawable.ic_service_stopped) }
+    private val iconStopped by lazy {
+        AnimatedState(R.drawable.ic_service_stopped, R.drawable.ic_neko_service_stopped)
+    }
     private val iconConnecting by lazy {
-        AnimatedState(R.drawable.ic_service_connecting) {
+        AnimatedState(R.drawable.ic_service_connecting, R.drawable.ic_neko_service_connecting) {
             hideProgress()
             delayedAnimation = (context as LifecycleOwner).lifecycleScope.launchWhenStarted {
                 delay(context.resources.getInteger(android.R.integer.config_mediumAnimTime) + 1000L)
@@ -70,13 +84,27 @@ class ServiceButton @JvmOverloads constructor(
         }
     }
     private val iconConnected by lazy {
-        AnimatedState(R.drawable.ic_service_connected) {
+        AnimatedState(R.drawable.ic_service_connected, R.drawable.ic_neko_service_connected) {
             delayedAnimation?.cancel()
             setProgressCompat(1, true)
         }
     }
-    private val iconStopping by lazy { AnimatedState(R.drawable.ic_service_stopping) }
+    private val iconStopping by lazy {
+        AnimatedState(R.drawable.ic_service_stopping, R.drawable.ic_neko_service_stopping)
+    }
     private val animationQueue = ArrayDeque<AnimatedState>()
+    private var brand = BrandTheme.SAKURA
+    private var targetIcon: AnimatedState? = null
+
+    internal fun applyBrand(theme: BrandTheme) {
+        if (brand == theme) return
+        val running = animationQueue.peekFirst()
+        animationQueue.clear()
+        running?.stop()
+        brand = theme
+        // The connection state and its progress timer are independent of the artwork.
+        targetIcon?.showFrame()
+    }
 
     private var checked = false
     private var delayedAnimation: Job? = null
@@ -130,6 +158,7 @@ class ServiceButton @JvmOverloads constructor(
     }
 
     private fun changeState(icon: AnimatedState, animate: Boolean) {
+        targetIcon = icon
         fun counters(a: AnimatedState, b: AnimatedState): Boolean =
             a == iconStopped && b == iconConnecting ||
                     a == iconConnecting && b == iconStopped ||

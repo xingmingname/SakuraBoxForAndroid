@@ -10,7 +10,7 @@ class ProxyService : Service(), BaseService.Interface {
     override val data = BaseService.Data(this)
     override val tag: String get() = "SagerNetProxyService"
     override fun createNotification(profileName: String): ServiceNotification =
-        ServiceNotification(this, profileName, "service-proxy", true)
+        ServiceNotification(this, profileName, "service-proxy")
 
     override var wakeLock: PowerManager.WakeLock? = null
     override var upstreamInterfaceName: String? = null

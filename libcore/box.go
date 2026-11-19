@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"io"
 	"libcore/device"
-	"libcore/sudoku"
 	"log"
 	"runtime"
 	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"unicode"
 
 	"github.com/matsuridayo/libneko/protect_server"
 	"github.com/matsuridayo/libneko/speedtest"
@@ -37,29 +37,39 @@ func init() {
 var mainInstance atomic.Pointer[BoxInstance]
 var mainAccess sync.Mutex
 
-func VersionBox() string {
-	version := []string{
-		"sing-box: " + constant.Version,
-		runtime.Version() + "@" + runtime.GOOS + "/" + runtime.GOARCH,
-		"sudoku: " + sudoku.UpstreamCommit,
-	}
+const (
+	sudokuFeature = "with_sudoku"
+	nakisFeature  = "with_nakis"
+)
 
+func versionFeatures(buildTags string) string {
+	features := strings.FieldsFunc(buildTags, func(r rune) bool { return r == ',' || unicode.IsSpace(r) })
+	count := 0
+	for _, feature := range features {
+		if feature != sudokuFeature && feature != nakisFeature {
+			features[count] = feature
+			count++
+		}
+	}
+	features = append(features[:count], sudokuFeature, nakisFeature)
+	return strings.Join(features, ",")
+}
+
+func VersionBox() string {
 	var tags string
-	debugInfo, loaded := debug.ReadBuildInfo()
-	if loaded {
-		for _, setting := range debugInfo.Settings {
-			switch setting.Key {
-			case "-tags":
+	if info, loaded := debug.ReadBuildInfo(); loaded {
+		for _, setting := range info.Settings {
+			if setting.Key == "-tags" {
 				tags = setting.Value
+				break
 			}
 		}
 	}
-
-	if tags != "" {
-		version = append(version, tags)
-	}
-
-	return strings.Join(version, "\n")
+	return strings.Join([]string{
+		"sing-box: " + constant.Version,
+		runtime.Version() + "@" + runtime.GOOS + "/" + runtime.GOARCH,
+		versionFeatures(tags),
+	}, "\n")
 }
 
 func ResetAllConnections(system bool) {
@@ -95,6 +105,7 @@ type BoxInstance struct {
 	state   int
 	started bool
 
+	profileStats   *ProfileTrafficStats
 	v2api          *boxapi.SbV2rayServer
 	selector       *group.Selector
 	pauseManager   pause.Manager
@@ -266,6 +277,13 @@ func (b *BoxInstance) QueryStats(tag, direct string) int64 {
 	return b.v2api.QueryStats(fmt.Sprintf("outbound>>>%s>>>traffic>>>%s", tag, direct))
 }
 
+func (b *BoxInstance) DashboardSelectedOutbound() string {
+	if b.selector == nil {
+		return ""
+	}
+	return b.selector.Now()
+}
+
 func (b *BoxInstance) SelectOutbound(tag string) bool {
 	if b.selector != nil {
 		return b.selector.SelectOutbound(tag)
@@ -275,13 +293,9 @@ func (b *BoxInstance) SelectOutbound(tag string) bool {
 
 func UrlTest(i *BoxInstance, link string, timeout int32) (latency int32, err error) {
 	defer device.DeferPanicToError("box.UrlTest", func(err_ error) { err = err_ })
-	var connectionTracker adapter.ConnectionTracker
 	// test i
 	if i != nil {
-		if i.v2api != nil {
-			connectionTracker = i.v2api.StatsService()
-		}
-		return speedtest.UrlTest(boxapi.CreateProxyHttpClient(i.Box, connectionTracker), link, timeout, speedtest.UrlTestStandard_RTT)
+		return speedtest.UrlTest(i.urlTestClient(), link, timeout, speedtest.UrlTestStandard_RTT)
 	}
 	// test direct
 	instance := mainInstance.Load()
@@ -289,10 +303,7 @@ func UrlTest(i *BoxInstance, link string, timeout int32) (latency int32, err err
 		return speedtest.UrlTest(boxapi.CreateProxyHttpClient(nil, nil), link, timeout, speedtest.UrlTestStandard_RTT)
 	}
 	// test mainInstance
-	if instance.v2api != nil {
-		connectionTracker = instance.v2api.StatsService()
-	}
-	return speedtest.UrlTest(boxapi.CreateProxyHttpClient(instance.Box, connectionTracker), link, timeout, speedtest.UrlTestStandard_RTT)
+	return speedtest.UrlTest(instance.urlTestClient(), link, timeout, speedtest.UrlTestStandard_RTT)
 }
 
 var protectCloser io.Closer

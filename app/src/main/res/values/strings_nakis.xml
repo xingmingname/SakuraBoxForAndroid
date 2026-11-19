@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="action_nakis" translatable="false">Nakis</string>
+    <string name="nakis_uuid">UUID</string>
+    <string name="nakis_security">Transport security</string>
+    <string name="nakis_tls">TLS</string>
+    <string name="nakis_default">Default (on)</string>
+    <string name="nakis_on">On</string>
+    <string name="nakis_off">Off</string>
+    <string name="nakis_sni">Server name (SNI)</string>
+    <string name="nakis_tls_pins">Public key pins (SHA-256 hex)</string>
+    <string name="nakis_ech">ECH configuration (Base64)</string>
+    <string name="nakis_advanced">Nakis advanced settings</string>
+    <string name="nakis_alternates">Alternate servers</string>
+    <string name="nakis_pool_lo">Minimum idle tunnels</string>
+    <string name="nakis_pool_hi">Maximum idle tunnels</string>
+    <string name="nakis_pool_max_uses">Sessions per tunnel</string>
+    <string name="nakis_pool_max_age">Idle tunnel lifetime</string>
+    <string name="nakis_race_count">Concurrent dial candidates</string>
+    <string name="nakis_dial_timeout">Dial timeout</string>
+    <string name="nakis_handshake_timeout">Handshake timeout</string>
+    <string name="nakis_keepalive">TCP keepalive</string>
+    <string name="nakis_send_pack">Frame target size</string>
+    <string name="nakis_send_tail">Frame fill threshold</string>
+    <string name="nakis_send_quiet">Coalescing window (ms)</string>
+    <string name="nakis_shape_up">Uplink shaping ranges</string>
+    <string name="nakis_shape_wait">Shaping timeout</string>
+    <string name="nakis_congestion">TCP congestion control</string>
+    <string name="nakis_pool_limits">The minimum is 1–1024. The maximum is at least one above the minimum and at most 4096.</string>
+    <string name="nakis_race_scope">Applies when multiple server endpoints are configured and no idle tunnel is available.</string>
+    <string name="nakis_keepalive_scope">Applies to a TCP socket opened by Nakis. In a proxy chain the underlying outbound controls its own TCP socket.</string>
+    <string name="nakis_congestion_scope">Applies to direct TCP sockets on supported Linux kernels. If the algorithm is unavailable, the system default is used.</string>
+    <string name="nakis_half_close_timeout">TCP half-close idle timeout</string>
+    <string name="nakis_udp_jitter">UDP timing jitter</string>
+    <string name="nakis_udp_jitter_help">Applies only to UDP over TCP. Enter 0s to disable jitter. Maximum 200ms.</string>
+</resources>

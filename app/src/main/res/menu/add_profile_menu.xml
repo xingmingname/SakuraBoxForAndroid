@@ -64,6 +64,9 @@
                         android:id="@+id/action_new_shadowtls"
                         android:title="@string/action_shadowtls" />
                     <item
+                        android:id="@+id/action_new_nakis"
+                        android:title="@string/action_nakis" />
+                    <item
                         android:id="@+id/action_new_sudoku"
                         android:title="@string/action_sudoku" />
                     <item

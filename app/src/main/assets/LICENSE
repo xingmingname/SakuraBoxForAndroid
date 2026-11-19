@@ -2529,3 +2529,24 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+NekoBox classic brand artwork
+The launcher images and monochrome-mask Quick Settings glyph come from
+MatsuriDayo/NekoBoxForAndroid at 5768494d8ae3c74a057bb6d46c0f8dc071b0d821.
+https://github.com/MatsuriDayo/NekoBoxForAndroid/tree/5768494d8ae3c74a057bb6d46c0f8dc071b0d821
+The five density variants of upstream mipmap ic_launcher.png and
+ic_launcher_foreground.png and the drawable ic_service_active.xml are included
+byte for byte under SakuraBox's _neko and ic_neko_tile resource names.
+The adaptive icon XML uses these renamed resources. The in-app connection
+button also uses both upstream vector inputs and the four upstream
+ic_service_* animations. Animation resource references were renamed to
+match the adapted resources. The upstream project declares GPL version 3
+or later and retains the notice below. No separate
+asset license was found in the pinned source tree.
+Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>
+The monochrome ic_neko_notification.xml is adapted from the same commit's
+app/src/main/res/drawable/ic_service_active.xml. The source contour is retained.
+https://github.com/MatsuriDayo/NekoBoxForAndroid/blob/5768494d8ae3c74a057bb6d46c0f8dc071b0d821/LICENSE
+SakuraBox is an independent derivative. The classic theme uses artwork from its
+upstream project and does not imply upstream endorsement.

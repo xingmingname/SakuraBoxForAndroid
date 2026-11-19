@@ -9,6 +9,8 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import android.os.RemoteException
 import android.view.KeyEvent
 import android.view.MenuItem
@@ -24,6 +26,7 @@ import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.branding.BrandThemeManager
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.ISagerNetService
 import io.nekohasekai.sagernet.aidl.SpeedDisplayData
@@ -42,10 +45,12 @@ import io.nekohasekai.sagernet.fmt.KryoConverters
 import io.nekohasekai.sagernet.fmt.PluginEntry
 import io.nekohasekai.sagernet.group.GroupInterfaceAdapter
 import io.nekohasekai.sagernet.group.GroupUpdater
+import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.alert
 import io.nekohasekai.sagernet.ktx.isPreview
 import io.nekohasekai.sagernet.ktx.launchCustomTab
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
+import io.nekohasekai.sagernet.fmt.nakis.NakisShareLink
 import io.nekohasekai.sagernet.ktx.parseProxies
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
@@ -61,10 +66,13 @@ class MainActivity : ThemedActivity(),
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        runCatching { BrandThemeManager.select(this, BrandThemeManager.current(this)) }
+            .onFailure { Logs.w(it) }
         io.nekohasekai.sagernet.shortcut.ShortcutIntents.upgradePinnedShortcuts(this)
 
         binding = LayoutMainBinding.inflate(layoutInflater)
         binding.fab.initProgress(binding.fabProgress)
+        binding.fab.applyBrand(BrandThemeManager.current(this))
         if (themeResId !in intArrayOf(
                 R.style.Theme_SagerNet_Black
             )
@@ -96,12 +104,13 @@ class MainActivity : ThemedActivity(),
         binding.stats.setOnClickListener { if (DataStore.serviceState.connected) binding.stats.testConnection() }
 
         setContentView(binding.root)
+        refreshBottomBar()
         changeState(BaseService.State.Idle)
         connection.connect(this, this)
         DataStore.configurationStore.registerChangeListener(this)
         GroupManager.userInterface = GroupInterfaceAdapter(this)
 
-        if (intent?.action == Intent.ACTION_VIEW) {
+        if (intent?.action == Intent.ACTION_VIEW || intent?.action == Intent.ACTION_SEND) {
             onNewIntent(intent)
         }
 
@@ -136,6 +145,14 @@ class MainActivity : ThemedActivity(),
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+
+        if (intent.action == Intent.ACTION_SEND) {
+            val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString() ?: return
+            if (text.trimStart().startsWith(NakisShareLink.PREFIX, ignoreCase = true)) {
+                runOnDefaultDispatcher { importProfile(text) }
+            }
+            return
+        }
 
         val uri = intent.data ?: return
 
@@ -218,10 +235,11 @@ class MainActivity : ThemedActivity(),
         GroupUpdater.startUpdate(subscription, true)
     }
 
-    suspend fun importProfile(uri: Uri) {
+    suspend fun importProfile(uri: Uri) = importProfile(uri.toString())
+
+    private suspend fun importProfile(text: String) {
         val profile = try {
-            ImportLimits.checkText(uri.toString())
-            parseProxies(uri.toString()).getOrNull(0) ?: error(getString(R.string.no_proxies_found))
+            parseProxies(text).getOrNull(0) ?: error(getString(R.string.no_proxies_found))
         } catch (e: Exception) {
             onMainDispatcher {
                 alert(e.readableMessage).show()
@@ -319,18 +337,19 @@ class MainActivity : ThemedActivity(),
     }
 
 
+    private fun refreshBottomBar() {
+        val fragment = supportFragmentManager.findFragmentById(R.id.fragment_holder)
+        val allowed = fragment == null || fragment is ConfigurationFragment || DataStore.showBottomBar
+        binding.stats.setAllowedOnPage(allowed)
+        binding.fabProgress.alpha = if (allowed) 1f else 0f
+        if (allowed) binding.fab.show() else binding.fab.hide()
+    }
+
     @SuppressLint("CommitTransaction")
     fun displayFragment(fragment: ToolbarFragment) {
-        if (fragment is ConfigurationFragment) {
-            binding.stats.allowShow = true
-            binding.fab.show()
-        } else if (!DataStore.showBottomBar) {
-            binding.stats.allowShow = false
-            binding.stats.performHide()
-            binding.fab.hide()
-        }
         supportFragmentManager.beginTransaction()
             .replace(R.id.fragment_holder, fragment)
+            .runOnCommit { refreshBottomBar() }
             .commitAllowingStateLoss()
         binding.drawerLayout.closeDrawers()
     }
@@ -344,8 +363,14 @@ class MainActivity : ThemedActivity(),
             R.id.nav_group -> displayFragment(GroupFragment())
             R.id.nav_route -> displayFragment(RouteFragment())
             R.id.nav_settings -> displayFragment(SettingsFragment())
+            R.id.nav_brand_theme -> {
+                binding.drawerLayout.closeDrawers()
+                startActivity(Intent(this, BrandThemeActivity::class.java))
+                return true
+            }
             R.id.nav_traffic -> displayFragment(WebviewFragment())
             R.id.nav_tools -> displayFragment(ToolsFragment())
+            R.id.nav_connections -> displayFragment(ConnectionsFragment())
             R.id.nav_logcat -> displayFragment(LogcatFragment())
             R.id.nav_about -> displayFragment(AboutFragment())
 
@@ -407,7 +432,7 @@ class MainActivity : ThemedActivity(),
     }
 
     override fun cbTrafficUpdate(data: TrafficData) {
-        runOnDefaultDispatcher {
+        lifecycleScope.launch {
             ProfileManager.postUpdate(data)
         }
     }
@@ -425,6 +450,7 @@ class MainActivity : ThemedActivity(),
     override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
         when (key) {
             Key.SERVICE_MODE -> onBinderDied()
+            Key.SHOW_BOTTOM_BAR -> lifecycleScope.launch { refreshBottomBar() }
             Key.PROXY_APPS, Key.BYPASS_MODE, Key.INDIVIDUAL -> {
                 if (DataStore.serviceState.canStop) {
                     snackbar(getString(R.string.need_reload)).setAction(R.string.apply) {
@@ -433,6 +459,11 @@ class MainActivity : ThemedActivity(),
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        binding.fab.applyBrand(BrandThemeManager.current(this))
     }
 
     override fun onStart() {

@@ -129,6 +129,7 @@
                 <data android:scheme="sn" />
                 <data android:scheme="ss" />
                 <data android:scheme="sudoku" />
+                <data android:scheme="nakis" />
                 <data android:scheme="ssr" />
                 <data android:scheme="socks" />
                 <data android:scheme="socks4" />
@@ -143,10 +144,30 @@
 
             </intent-filter>
 
+            <intent-filter android:label="@string/profile_import">
+                <action android:name="android.intent.action.SEND" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+
             <meta-data
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />
         </activity>
+
+        <activity
+            android:name="io.nekohasekai.sagernet.ui.CustomBrandActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name="io.nekohasekai.sagernet.ui.BrandThemeActivity"
+            android:exported="false" />
+        <activity
+            android:name="io.nekohasekai.sagernet.ui.ConnectionDetailsActivity"
+            android:exported="false" />
         <activity
             android:name="io.nekohasekai.sagernet.ui.VpnRequestActivity"
             android:excludeFromRecents="true"
@@ -196,6 +217,9 @@
         <activity
             android:name="moe.matsuri.nb4a.proxy.shadowtls.ShadowTLSSettingsActivity"
             android:configChanges="uiMode" />
+        <activity
+            android:name=".ui.profile.NakisSettingsActivity"
+            android:exported="false" />
         <activity
             android:name=".ui.profile.SudokuSettingsActivity"
             android:exported="false" />

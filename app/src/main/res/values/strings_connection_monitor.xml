@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="menu_connections">Dashboard</string>
+    <string name="monitor_active_count">Active connections</string>
+    <string name="monitor_memory">Memory usage</string>
+    <string name="monitor_memory_scope">Core background process RSS including Java and native memory in that process  Not total application memory</string>
+    <string name="monitor_disconnected">Not connected</string>
+    <string name="monitor_unavailable">Unavailable</string>
+    <string name="monitor_unknown">Unknown</string>
+    <string name="monitor_no_connections">No active connections</string>
+    <string name="monitor_protocol_port">%1$s  Port %2$s</string>
+    <string name="monitor_row_traffic">↑ %1$s  ↓ %2$s  %3$s</string>
+    <string name="monitor_details">Connection details</string>
+    <string name="monitor_connection_state">Connection state</string>
+    <string name="monitor_domain">Destination domain</string>
+    <string name="monitor_destination">Destination IP</string>
+    <string name="monitor_destination_port">Destination port</string>
+    <string name="monitor_source">Source IP and port</string>
+    <string name="monitor_protocol">Network protocol</string>
+    <string name="monitor_created_at">Established at</string>
+    <string name="monitor_duration">Duration</string>
+    <string name="monitor_upload">Uploaded</string>
+    <string name="monitor_download">Downloaded</string>
+    <string name="monitor_outbound">Outbound</string>
+    <string name="monitor_chain">Tracked outbound path</string>
+    <string name="monitor_rule">Matched routing rule</string>
+    <string name="monitor_application">Application and package</string>
+    <string name="monitor_closed">Closed</string>
+    <string name="monitor_active">Active</string>
+</resources>

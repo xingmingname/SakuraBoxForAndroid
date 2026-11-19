@@ -24,7 +24,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.databinding.LayoutScannerBinding
-import io.nekohasekai.sagernet.group.RawUpdater
+import io.nekohasekai.sagernet.group.SubscriptionParser
 import io.nekohasekai.sagernet.ktx.*
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -119,7 +119,7 @@ class ScannerActivity : ThemedActivity(),
         runOnDefaultDispatcher {
             try {
                 val text = result?.text ?: throw Exception("QR code not found")
-                val results = RawUpdater.parseRaw(text)
+                val results = SubscriptionParser.parseRaw(text)
                 if (!results.isNullOrEmpty()) {
                     val currentGroupId = DataStore.selectedGroupForImport()
                     if (DataStore.selectedGroup != currentGroupId) {
