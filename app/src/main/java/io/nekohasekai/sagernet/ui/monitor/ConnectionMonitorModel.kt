@@ -30,6 +30,7 @@ data class ConnectionMonitorState(
     val connections: List<MonitoredConnection> = emptyList(),
     val closed: MonitoredConnection? = null,
     val closedAt: Long? = null,
+    val dashboard: DashboardStatus? = null,
 )
 
 /** Only touched by the reader coroutine. A status frame commits a batch. */

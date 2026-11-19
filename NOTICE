@@ -11,7 +11,7 @@ This SakuraBox build includes Sudoku client protocol and transport source from
 https://github.com/SUDOKU-ASCII/sudoku-sing-box
 Pinned commit: 36be4631668fd909452f46f90bbfed41c523cde3
 Sources, original notices, full GPL license and per-file provenance are retained
-under libcore/sudoku/. Local changes are described in libcore/sudoku/UPSTREAM.json and libcore/sudoku/RESOURCE_BUDGET.md.
+under libcore/sudoku/. Local changes and resource policy are recorded in libcore/sudoku/UPSTREAM.json.
 This is an independent SakuraBox adaptation and does not imply upstream endorsement.
 
 app/src/main/assets/yacd.zip is the retained Yacd-meta 0.3.6 third-party web UI.
@@ -56,3 +56,24 @@ Nakis client wire and scheduling code is adapted from n-yarvex/nakis at
 01be745ee68c737a685999d0cc7cb47c9fb048ea and synchronized to
 40ce887879cdfc00cd74c52f88a24da7c1a1be00. Copyright (c) 2026 nyarvex.
 See libcore/nakis/LICENSE for the MIT license.
+
+
+NekoBox classic brand artwork
+The launcher images and monochrome-mask Quick Settings glyph come from
+MatsuriDayo/NekoBoxForAndroid at 5768494d8ae3c74a057bb6d46c0f8dc071b0d821.
+https://github.com/MatsuriDayo/NekoBoxForAndroid/tree/5768494d8ae3c74a057bb6d46c0f8dc071b0d821
+The five density variants of upstream mipmap ic_launcher.png and
+ic_launcher_foreground.png and the drawable ic_service_active.xml are included
+byte for byte under SakuraBox's _neko and ic_neko_tile resource names.
+The adaptive icon XML uses these renamed resources. The in-app connection
+button also uses both upstream vector inputs and the four upstream
+ic_service_* animations. Animation resource references were renamed to
+match the adapted resources. The upstream project declares GPL version 3
+or later and retains the notice below. No separate
+asset license was found in the pinned source tree.
+Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>
+The monochrome ic_neko_notification.xml is adapted from the same commit's
+app/src/main/res/drawable/ic_service_active.xml. The source contour is retained.
+https://github.com/MatsuriDayo/NekoBoxForAndroid/blob/5768494d8ae3c74a057bb6d46c0f8dc071b0d821/LICENSE
+SakuraBox is an independent derivative. The classic theme uses artwork from its
+upstream project and does not imply upstream endorsement.

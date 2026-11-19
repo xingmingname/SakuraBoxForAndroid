@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
+import android.os.SystemClock
 import io.nekohasekai.sagernet.Action
 import io.nekohasekai.sagernet.aidl.ISagerNetService
 import io.nekohasekai.sagernet.bg.BaseService
@@ -25,6 +26,7 @@ import java.util.concurrent.atomic.AtomicLong
 class ConnectionMonitorClient(
     context: Context,
     private val detailID: String? = null,
+    private val dashboard: Boolean = false,
 ) {
     private val context = context.applicationContext
     private val epoch = AtomicLong()
@@ -45,12 +47,40 @@ class ConnectionMonitorClient(
                 reader?.cancel()
                 closePipe()
                 reader = scope.launch(Dispatchers.IO) {
+                    var session = 0L
+                    var lastAppsAt = -5000L
+                    var apps = emptyList<DashboardAppTraffic>()
+                    fun status(): DashboardStatus? {
+                        if (!dashboard) return null
+                        return runCatching {
+                            val now = SystemClock.elapsedRealtime()
+                            val includeApps = now - lastAppsAt >= 5000L
+                            val bundle = service.getDashboardStatus(includeApps)
+                            val started = bundle.getLong("started")
+                            if (session != started) {
+                                session = started
+                                apps = emptyList()
+                                lastAppsAt = -5000L
+                            }
+                            val (bytes, freshApps) = decodeDashboardTraffic(bundle.getString("traffic"), includeApps)
+                            if (freshApps != null) {
+                                lastAppsAt = now
+                                apps = freshApps
+                            }
+                            DashboardStatus(bundle.getInt("state"), started, bundle.getBoolean("tun"),
+                                bundle.getString("name").orEmpty(), bundle.getString("protocol").orEmpty(),
+                                bundle.getStringArrayList("hops").orEmpty(), bundle.getInt("hopCount"),
+                                SystemClock.elapsedRealtime(), bytes, apps)
+                        }.getOrNull()
+                    }
+
                     while (isActive && epoch.get() == generation) {
                         var descriptor: ParcelFileDescriptor? = null
                         try {
-                            val connected = service.state == BaseService.State.Connected.ordinal
+                            val initial = status()
+                            val connected = (initial?.state ?: service.state) == BaseService.State.Connected.ordinal
                             if (!isActive) return@launch
-                            publish(generation, ConnectionMonitorState(connected = connected))
+                            publish(generation, ConnectionMonitorState(connected = connected, dashboard = initial))
                             if (!connected) { delay(1000); continue }
                             val opened = service.openConnectionMonitor(detailID.orEmpty())
                             descriptor = opened
@@ -60,12 +90,19 @@ class ConnectionMonitorClient(
                                     else { opened.close(); return@launch }
                                 }
                                 val store = ConnectionMonitorStore(detailID)
+                                var lastPublish = -1000L
                                 ParcelFileDescriptor.AutoCloseInputStream(opened).bufferedReader(Charsets.UTF_8).use { input ->
                                     while (isActive && epoch.get() == generation) {
                                         val line = input.readLine() ?: break
                                         if (!store.accept(line)) continue
+                                        val now = SystemClock.elapsedRealtime()
+                                        if (dashboard && now - lastPublish < 900L) continue
+                                        lastPublish = now
+                                        val current = status()
                                         if (!isActive) return@launch
-                                        publish(generation, store.snapshot())
+                                        if (current != null && (current.state != BaseService.State.Connected.ordinal ||
+                                                (initial?.started ?: 0L) != 0L && current.started != initial?.started)) break
+                                        publish(generation, store.snapshot().copy(dashboard = current))
                                     }
                                 }
                             }
@@ -80,10 +117,11 @@ class ConnectionMonitorClient(
                             runCatching { descriptor?.close() }
                         }
                         if (isActive) {
-                            val connected = runCatching { service.state }.getOrNull()
+                            val current = status()
+                            val connected = (current?.state ?: runCatching { service.state }.getOrNull())
                                 ?.let { it == BaseService.State.Connected.ordinal }
                             if (!isActive) return@launch
-                            publish(generation, ConnectionMonitorState(connected = connected))
+                            publish(generation, ConnectionMonitorState(connected = connected, dashboard = current))
                             delay(1000)
                         }
                     }

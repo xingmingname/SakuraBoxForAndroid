@@ -5,14 +5,14 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.os.*
+import android.os.Build
+import android.os.IBinder
+import android.os.PowerManager
 import android.widget.Toast
 import io.nekohasekai.sagernet.Action
 import io.nekohasekai.sagernet.BootReceiver
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
-import io.nekohasekai.sagernet.aidl.ISagerNetService
-import io.nekohasekai.sagernet.aidl.ISagerNetServiceCallback
 import io.nekohasekai.sagernet.bg.proto.ProxyInstance
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.SagerDatabase
@@ -23,7 +23,6 @@ import io.nekohasekai.sagernet.plugin.PluginManager
 import io.nekohasekai.sagernet.utils.DefaultNetworkListener
 import kotlinx.coroutines.*
 import libcore.Libcore
-import moe.matsuri.nb4a.Protocols
 import moe.matsuri.nb4a.utils.Util
 import java.net.UnknownHostException
 
@@ -44,8 +43,10 @@ class BaseService {
 
     class Data internal constructor(private val service: Interface) {
         @Volatile var state = State.Stopped
+        @Volatile var connectedAt = 0L
             private set
 
+        val tunRunning get() = (service as? VpnService)?.conn != null
         @Volatile var proxy: ProxyInstance? = null
         var notification: ServiceNotification? = null
 
@@ -82,122 +83,17 @@ class BaseService {
         }
         var closeReceiverRegistered = false
 
-        val binder = Binder(this)
+        internal val binder = ServiceBinder(this)
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         val startup = ServiceStartup(scope)
         val connectingJob: Job? get() = startup.job
 
         fun changeState(s: State, msg: String? = null) {
             if (state == s && msg == null) return
+            if (state != s) connectedAt = if (s == State.Connected) android.os.SystemClock.elapsedRealtime() else 0L
             state = s
             DataStore.serviceState = s
             binder.stateChanged(s, msg)
-        }
-    }
-
-    class Binder(@Volatile private var data: Data? = null) : ISagerNetService.Stub(), CoroutineScope,
-        AutoCloseable {
-        private val callbacks = RemoteCallbackList<ISagerNetServiceCallback>()
-        private val callbacksAccess = Any()
-        private var callbacksClosed = false
-
-        override val coroutineContext = Dispatchers.Main.immediate + Job()
-
-        override fun getState(): Int = (data?.state ?: State.Idle).ordinal
-        override fun getProfileName(): String = (data?.proxy?.displayProfileName ?: "Idle")
-
-        override fun registerCallback(cb: ISagerNetServiceCallback, id: Int) {
-            if (id == SagerConnection.CONNECTION_ID_RESTART_BG) {
-                Runtime.getRuntime().exit(0)
-                return
-            }
-            synchronized(callbacksAccess) {
-                if (callbacksClosed) return
-                // Cookies share RemoteCallbackList's binder identity and death cleanup.
-                callbacks.unregister(cb)
-                callbacks.register(cb, id)
-            }
-        }
-
-        override fun clearTraffic(profileIds: LongArray): Boolean = runBlocking(Dispatchers.IO) {
-            try {
-                io.nekohasekai.sagernet.bg.proto.TrafficPersistence.clear(profileIds.toList())
-                true
-            } catch (_: Exception) {
-                Logs.w("Traffic reset failed existing totals retained")
-                false
-            }
-        }
-
-        private val connectionMonitors = ConnectionMonitorStreams()
-
-        override fun openConnectionMonitor(connectionId: String): ParcelFileDescriptor? {
-            val current = data ?: return null
-            if (current.state != State.Connected) return null
-            return current.proxy?.box?.let { connectionMonitors.open(it, connectionId) }
-        }
-
-        private fun callbackSnapshot(id: Int?): List<ISagerNetServiceCallback> =
-            synchronized(callbacksAccess) {
-                if (callbacksClosed) return@synchronized emptyList()
-                val count = callbacks.beginBroadcast()
-                try {
-                    buildList {
-                        repeat(count) { index ->
-                            if (id == null || callbacks.getBroadcastCookie(index) == id) {
-                                add(callbacks.getBroadcastItem(index))
-                            }
-                        }
-                    }
-                } finally {
-                    callbacks.finishBroadcast()
-                }
-            }
-
-        suspend fun broadcast(id: Int? = null, work: (ISagerNetServiceCallback) -> Unit) {
-            // No registry lock or RemoteCallbackList broadcast is held across IPC.
-            for (callback in callbackSnapshot(id)) {
-                try { work(callback) }
-                catch (_: RemoteException) {}
-                catch (_: Exception) {}
-            }
-        }
-
-        override fun unregisterCallback(cb: ISagerNetServiceCallback) {
-            synchronized(callbacksAccess) { callbacks.unregister(cb) }
-        }
-
-        override fun urlTest(): Int {
-            if (data?.proxy?.box == null) {
-                error("core not started")
-            }
-            try {
-                return Libcore.urlTest(
-                    data!!.proxy!!.box, DataStore.connectionTestURL, 3000
-                )
-            } catch (e: Exception) {
-                error(Protocols.genFriendlyMsg(e.readableMessage))
-            }
-        }
-
-        fun stateChanged(s: State, msg: String?) = launch {
-            val profileName = profileName
-            broadcast { it.stateChanged(s.ordinal, profileName, msg) }
-        }
-
-        fun missingPlugin(pluginName: String) = launch {
-            val profileName = profileName
-            broadcast { it.missingPlugin(profileName, pluginName) }
-        }
-
-        override fun close() {
-            connectionMonitors.close()
-            synchronized(callbacksAccess) {
-                callbacksClosed = true
-                callbacks.kill()
-            }
-            cancel()
-            data = null
         }
     }
 

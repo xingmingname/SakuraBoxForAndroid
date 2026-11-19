@@ -18,6 +18,8 @@ class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = 
     @Volatile var looper: TrafficLooper? = null
         private set
     private var closed = false
+    val dashboardName = runCatching { profile.displayName().orEmpty().take(120) }.getOrDefault("")
+    val dashboardProtocol = runCatching { profile.displayType() }.getOrDefault("")
 
     override fun buildConfig() {
         super.buildConfig()

@@ -5,3 +5,16 @@
 *.jpg binary
 *.zip binary
 *.jar binary
+
+# Bundled upstream code and assets.
+libcore/stun/** linguist-vendored
+app/src/main/assets/yacd.zip linguist-vendored
+app/src/main/res/font/jetbrains_mono.ttf linguist-vendored
+
+# Outputs from Room and tools/generate-sakurabox-icons.py.
+app/schemas/** linguist-generated
+app/src/main/res/drawable/ic_sakura_launcher_foreground.xml linguist-generated
+app/src/main/res/drawable/ic_sakura_logo.xml linguist-generated
+app/src/main/res/drawable/ic_sakura_monochrome.xml linguist-generated
+app/src/main/res/drawable/ic_sakura_notification.xml linguist-generated
+app/src/main/res/drawable/ic_service_active.xml linguist-generated

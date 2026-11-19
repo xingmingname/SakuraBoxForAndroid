@@ -183,12 +183,11 @@ func monitorMetadata(c *trafficcontrol.TrackerMetadata, end time.Time, details b
 	var rule string
 	var packages, chain []string
 	var ownerUID *int32
+	if owner, ok := dashboardOwner(meta); ok {
+		ownerUID = &owner.UID
+		packages = []string{owner.Package}
+	}
 	if details {
-		if owner := meta.ProcessInfo; meta.InboundType == "tun" && owner != nil && owner.UserId > 1000 &&
-			len(owner.AndroidPackageNames) == 1 && owner.AndroidPackageNames[0] != "" {
-			uid := owner.UserId
-			ownerUID = &uid
-		}
 		rule = meta.RouteRule
 		if rule == "" && c.Rule != nil {
 			rule = c.Rule.String()

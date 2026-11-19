@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="brand_theme_menu">Theme</string>
+    <string name="brand_neko" translatable="false">NekoBox</string>
+    <string name="brand_neko_long" translatable="false">NekoBox for Android</string>
+    <string name="brand_theme_sakura">Default theme</string>
+    <string name="brand_theme_neko">Classic theme</string>
+    <string name="brand_theme_card_description">%1$s, %2$s</string>
+    <string name="brand_theme_failure">Could not switch the brand theme.</string>
+    <string name="brand_custom">Custom theme</string>
+    <string name="brand_custom_theme_name">Theme name</string>
+    <string name="brand_custom_tile_title">Quick Settings tile name</string>
+    <string name="brand_custom_app_icon">App artwork</string>
+    <string name="brand_custom_notice_icon">Notification icon</string>
+    <string name="brand_custom_tile_icon">Quick Settings tile icon</string>
+    <string name="brand_custom_import">Import image</string>
+    <string name="brand_custom_restore_icon">Restore default image</string>
+    <string name="brand_custom_image_title">Image framing</string>
+    <string name="brand_custom_fit">Fit the full image</string>
+    <string name="brand_custom_crop">Center crop to square</string>
+    <string name="brand_custom_image_error">Could not read this image</string>
+    <string name="brand_custom_mask_empty">No visible silhouette found. Try a transparent image or a different crop.</string>
+    <string name="brand_custom_save">Save and apply</string>
+    <string name="brand_custom_reset">Reset theme fields</string>
+    <string name="brand_tile_with_node">%1$s · %2$s</string>
+    <string name="service_vpn_status">VPN status</string>
+</resources>

@@ -31,18 +31,6 @@
       "adapted_sha256": "885cb608e411237907a59b55b63703a04f44ebe70d6752a95eef0a90a36bcd86"
     },
     {
-      "source": "transport/sudoku/config_test.go",
-      "path": "transport/config_test.go",
-      "source_sha256": "c325c51cc0f82c83c2010d4888fe3515f707ee542d87b74088627e405885b3bd",
-      "adapted_sha256": "714973984785e1d7a9ef8cd8df5bfbcc02949b750d69c51c756210894cf7e7a9"
-    },
-    {
-      "source": "transport/sudoku/connutil/copy_test.go",
-      "path": "transport/connutil/copy_test.go",
-      "source_sha256": "77edfb799bff6806dc4ffd40e1cf487745b536507c8978618acde32078ce1b31",
-      "adapted_sha256": "77edfb799bff6806dc4ffd40e1cf487745b536507c8978618acde32078ce1b31"
-    },
-    {
       "source": "transport/sudoku/connutil/halfclose.go",
       "path": "transport/connutil/halfclose.go",
       "source_sha256": "244d1c182505857fc7abe7e910b11117a1e6769ca5d9eb3676bb826877a0aa90",
@@ -53,12 +41,6 @@
       "path": "transport/connutil/pipe_conn.go",
       "source_sha256": "d2477c3b5362b3766af6b60e61792795034bb69c132992b9d7f816ec9c535338",
       "adapted_sha256": "d2477c3b5362b3766af6b60e61792795034bb69c132992b9d7f816ec9c535338"
-    },
-    {
-      "source": "transport/sudoku/connutil/pipe_conn_test.go",
-      "path": "transport/connutil/pipe_conn_test.go",
-      "source_sha256": "2ede7a1a59f20a9b3ac69a0240216914e609f99f95f7dbc6e599e585f37e4288",
-      "adapted_sha256": "2ede7a1a59f20a9b3ac69a0240216914e609f99f95f7dbc6e599e585f37e4288"
     },
     {
       "source": "transport/sudoku/connutil/readonly_conn.go",
@@ -73,12 +55,6 @@
       "adapted_sha256": "209440746aa23b0ff63181d5ba1725874c48673611f16c0b30029d8ec1094991"
     },
     {
-      "source": "transport/sudoku/connutil/write_buffers_test.go",
-      "path": "transport/connutil/write_buffers_test.go",
-      "source_sha256": "ae36047460a4f26db85038743884c4c418dd5d88ea1ac735dfc45601264b9e78",
-      "adapted_sha256": "ae36047460a4f26db85038743884c4c418dd5d88ea1ac735dfc45601264b9e78"
-    },
-    {
       "source": "transport/sudoku/connutil/write_full.go",
       "path": "transport/connutil/write_full.go",
       "source_sha256": "f78b050b09619da66b398c129deee711cc0821fc64cd21387f03f0b371a95638",
@@ -89,19 +65,6 @@
       "path": "transport/crypto/frame_pool.go",
       "source_sha256": "f05e9e61ce4705cecce4db5c13da782e6a85c8ce7373a347056e3d5a4ad1319c",
       "adapted_sha256": "f05e9e61ce4705cecce4db5c13da782e6a85c8ce7373a347056e3d5a4ad1319c"
-    },
-    {
-      "source": "transport/sudoku/crypto/idle_memory_test.go",
-      "path": "transport/crypto/idle_memory_test.go",
-      "source_sha256": "90e4769ece0de11bcac5cf9cabd3ac35eacb0a7f390baba76201b678df33b6cf",
-      "adapted_sha256": "3f6af76b908593840c4c686ae1b7a6cf25ee37275f8b0886c85371eaf25a9409",
-      "local_changes": "Wait for writers to return pooled frames; release test connections; exclude sync.Pool victim cache with two GC cycles before measuring idle heap."
-    },
-    {
-      "source": "transport/sudoku/crypto/key_test.go",
-      "path": "transport/crypto/key_test.go",
-      "source_sha256": "33d2b0708b26ca5c0b650fb0a070e0145690824633cc3e263188a0e404620aee",
-      "adapted_sha256": "33d2b0708b26ca5c0b650fb0a070e0145690824633cc3e263188a0e404620aee"
     },
     {
       "source": "transport/sudoku/crypto/keypair.go",
@@ -116,46 +79,10 @@
       "adapted_sha256": "32693c38bb677fad10de11af6113a256d6581088ae0a1cfd058ff9af4380af18"
     },
     {
-      "source": "transport/sudoku/crypto/record_conn_buffers_test.go",
-      "path": "transport/crypto/record_conn_buffers_test.go",
-      "source_sha256": "9aae30336784a53406847771890492b0380be45cb6392c10336f76362c788d0c",
-      "adapted_sha256": "9aae30336784a53406847771890492b0380be45cb6392c10336f76362c788d0c"
-    },
-    {
-      "source": "transport/sudoku/crypto/record_conn_keyupdate_test.go",
-      "path": "transport/crypto/record_conn_keyupdate_test.go",
-      "source_sha256": "0ab925b942a0b2ec73bcecef697c0a1bba9dc7a9566d2aa9c047efa72dae6859",
-      "adapted_sha256": "27d30432b7720beef2e85cf4e9e091d7dc8f64a86055990764e3662add60f2ce"
-    },
-    {
-      "source": "transport/sudoku/crypto/record_conn_test.go",
-      "path": "transport/crypto/record_conn_test.go",
-      "source_sha256": "24884e670383c2050f97b6485ea429b7fb97457d7c40258e0986a02dd58a5269",
-      "adapted_sha256": "24884e670383c2050f97b6485ea429b7fb97457d7c40258e0986a02dd58a5269"
-    },
-    {
       "source": "transport/sudoku/crypto/record_copy.go",
       "path": "transport/crypto/record_copy.go",
       "source_sha256": "ff31e0221a476378df98af3502c9c6cdc544167b32ebce37cb5fcf9ae50ac93b",
       "adapted_sha256": "be05699ade54ecb06a964f46e5237af089c6b75232b2e99628072f5713abe174"
-    },
-    {
-      "source": "transport/sudoku/crypto/record_copy_test.go",
-      "path": "transport/crypto/record_copy_test.go",
-      "source_sha256": "ac6b55735aff1d8db36f1f03e56f3e838521a9c9fcadefb022648f08e6b0ec5d",
-      "adapted_sha256": "ac6b55735aff1d8db36f1f03e56f3e838521a9c9fcadefb022648f08e6b0ec5d"
-    },
-    {
-      "source": "transport/sudoku/crypto/reference_records_test.go",
-      "path": "transport/crypto/reference_records_test.go",
-      "source_sha256": "f708ff8a982ded422eb200aed13c6a00874e8c5181d516a6f69fc3b057b607f8",
-      "adapted_sha256": "f708ff8a982ded422eb200aed13c6a00874e8c5181d516a6f69fc3b057b607f8"
-    },
-    {
-      "source": "transport/sudoku/crypto/testdata/v051_records.json",
-      "path": "transport/crypto/testdata/v051_records.json",
-      "source_sha256": "8f69cac0b080739c09c0db74e126bb60e6e5262c0adcfcd3b4db6e122f9bf2de",
-      "adapted_sha256": "8f69cac0b080739c09c0db74e126bb60e6e5262c0adcfcd3b4db6e122f9bf2de"
     },
     {
       "source": "transport/sudoku/dnsutil/doh.go",
@@ -164,34 +91,16 @@
       "adapted_sha256": "490c6b323ef1ecb8702f0418935664e7322fa984eb95ddf259c3081de1856b82"
     },
     {
-      "source": "transport/sudoku/dnsutil/doh_test.go",
-      "path": "transport/dnsutil/doh_test.go",
-      "source_sha256": "b62f63f7d7ad28aa4b813b8386122862c2a9a3bf6b03e04948abf2813369655d",
-      "adapted_sha256": "b62f63f7d7ad28aa4b813b8386122862c2a9a3bf6b03e04948abf2813369655d"
-    },
-    {
       "source": "transport/sudoku/dnsutil/host.go",
       "path": "transport/dnsutil/host.go",
       "source_sha256": "8c7ce4c374c8fc10e7f46ea910a7a04369002ff4ba563527e916d6a4d68dbfba",
       "adapted_sha256": "8c7ce4c374c8fc10e7f46ea910a7a04369002ff4ba563527e916d6a4d68dbfba"
     },
     {
-      "source": "transport/sudoku/dnsutil/host_test.go",
-      "path": "transport/dnsutil/host_test.go",
-      "source_sha256": "430d67e8c9115aa911e19272c37cd8d20aa8f318ccadeefd5da22d01b688c916",
-      "adapted_sha256": "430d67e8c9115aa911e19272c37cd8d20aa8f318ccadeefd5da22d01b688c916"
-    },
-    {
       "source": "transport/sudoku/dnsutil/options.go",
       "path": "transport/dnsutil/options.go",
       "source_sha256": "e588fb6314d30b93b1434561bdc5a9d6ce0c33f1ab695cb2ac479b2f4f72fad6",
       "adapted_sha256": "e588fb6314d30b93b1434561bdc5a9d6ce0c33f1ab695cb2ac479b2f4f72fad6"
-    },
-    {
-      "source": "transport/sudoku/dnsutil/options_test.go",
-      "path": "transport/dnsutil/options_test.go",
-      "source_sha256": "1a83c1c66d5dd6fee21a406d1dd3cf632dbf80c9612848c1c7f0fbb8d66789bb",
-      "adapted_sha256": "1a83c1c66d5dd6fee21a406d1dd3cf632dbf80c9612848c1c7f0fbb8d66789bb"
     },
     {
       "source": "transport/sudoku/dnsutil/outbound_control_darwin.go",
@@ -224,12 +133,6 @@
       "adapted_sha256": "88c461cd6280981448349d56ac835c0a90ac39a37e638458a10955fbba892c17"
     },
     {
-      "source": "transport/sudoku/dnsutil/outbound_dialer_test.go",
-      "path": "transport/dnsutil/outbound_dialer_test.go",
-      "source_sha256": "b03e0294f74855cc64c818060ab61a732197b88f7b115c28d5a7dc782d40b490",
-      "adapted_sha256": "b03e0294f74855cc64c818060ab61a732197b88f7b115c28d5a7dc782d40b490"
-    },
-    {
       "source": "transport/sudoku/dnsutil/outbound_http.go",
       "path": "transport/dnsutil/outbound_http.go",
       "source_sha256": "6ca95f659a894d0dcff0a5aa3c87de327b57dc501b86ce57600f9b36ab541baa",
@@ -240,18 +143,6 @@
       "path": "transport/dnsutil/resolver.go",
       "source_sha256": "bf03f939a2272f8b5ad76ae5fc92885f8a34c2d91baf4d30d9e8954d8f4243bd",
       "adapted_sha256": "bf03f939a2272f8b5ad76ae5fc92885f8a34c2d91baf4d30d9e8954d8f4243bd"
-    },
-    {
-      "source": "transport/sudoku/dnsutil/resolver_bench_test.go",
-      "path": "transport/dnsutil/resolver_bench_test.go",
-      "source_sha256": "5950606cb75cf99a3a7a34a77c266e107670fba4f7e53134764cbca3a7ad0499",
-      "adapted_sha256": "5950606cb75cf99a3a7a34a77c266e107670fba4f7e53134764cbca3a7ad0499"
-    },
-    {
-      "source": "transport/sudoku/dnsutil/resolver_test.go",
-      "path": "transport/dnsutil/resolver_test.go",
-      "source_sha256": "f3c19039537b1a36ea2fce2d0241168fdf48cda87f6bd90041c0fd0d94efd633",
-      "adapted_sha256": "f3c19039537b1a36ea2fce2d0241168fdf48cda87f6bd90041c0fd0d94efd633"
     },
     {
       "source": "transport/sudoku/internal/config/config.go",
@@ -272,12 +163,6 @@
       "adapted_sha256": "b8ad29016f4c74587a06f4ceb6f2f5dabff33ef5473b9f623e8dc4ebcc6ddd3b"
     },
     {
-      "source": "transport/sudoku/internal/config/finalize_test.go",
-      "path": "transport/internal/config/finalize_test.go",
-      "source_sha256": "8152941f82dca3d484353d5dd51fcf8a239fe87bfb950a86f72e1b74bbf40208",
-      "adapted_sha256": "8152941f82dca3d484353d5dd51fcf8a239fe87bfb950a86f72e1b74bbf40208"
-    },
-    {
       "source": "transport/sudoku/internal/config/httpmask.go",
       "path": "transport/internal/config/httpmask.go",
       "source_sha256": "9f9a389408fa14c6005ac94e5b36e1b193d65620bdb215fce67be21714fd86c6",
@@ -288,12 +173,6 @@
       "path": "transport/internal/config/init_config.go",
       "source_sha256": "3e8419528e6115e9e38865a8adc29ed907998d37e2a6ce7a490d307ebd883bdb",
       "adapted_sha256": "3e8419528e6115e9e38865a8adc29ed907998d37e2a6ce7a490d307ebd883bdb"
-    },
-    {
-      "source": "transport/sudoku/internal/config/init_config_test.go",
-      "path": "transport/internal/config/init_config_test.go",
-      "source_sha256": "9fb1f036ab4c47044b07d39c477014d9bc11a0ba242b49b1c2aa1c27cef7b6ac",
-      "adapted_sha256": "9fb1f036ab4c47044b07d39c477014d9bc11a0ba242b49b1c2aa1c27cef7b6ac"
     },
     {
       "source": "transport/sudoku/internal/config/normalize.go",
@@ -314,34 +193,16 @@
       "adapted_sha256": "d39c90ab7bbd4f985aff5c3cb76c5219a4ca092ad688c6518e2d9ae947509bd9"
     },
     {
-      "source": "transport/sudoku/internal/config/rules_test.go",
-      "path": "transport/internal/config/rules_test.go",
-      "source_sha256": "0ca269ad67b7ecb19db76405864576cb1f5176c1be10959560fd7090b53250ab",
-      "adapted_sha256": "0ca269ad67b7ecb19db76405864576cb1f5176c1be10959560fd7090b53250ab"
-    },
-    {
       "source": "transport/sudoku/internal/config/save.go",
       "path": "transport/internal/config/save.go",
       "source_sha256": "13272a880e1e5e98ddf63b488db9e87884fefe067f620595262dee5319f9281b",
       "adapted_sha256": "13272a880e1e5e98ddf63b488db9e87884fefe067f620595262dee5319f9281b"
     },
     {
-      "source": "transport/sudoku/internal/config/save_test.go",
-      "path": "transport/internal/config/save_test.go",
-      "source_sha256": "f977bbb32965940d359d06dec7baa062672e82ed3a7e7154f4155163bcda9098",
-      "adapted_sha256": "f977bbb32965940d359d06dec7baa062672e82ed3a7e7154f4155163bcda9098"
-    },
-    {
       "source": "transport/sudoku/internal/config/shortlink.go",
       "path": "transport/internal/config/shortlink.go",
       "source_sha256": "49a9ebc818acce8d5bd861838c86feb8a3b003ed9a178d95f3bc2831098a22ba",
       "adapted_sha256": "5571ccb948ebbad8f8143fdef9544e9184929b0a4ba646f5d403d0f357bd4fb7"
-    },
-    {
-      "source": "transport/sudoku/internal/config/shortlink_test.go",
-      "path": "transport/internal/config/shortlink_test.go",
-      "source_sha256": "4b3ae0e3ae60beb75b4360abb5f77271ccfa153f74e334181bf201fdf799c200",
-      "adapted_sha256": "4b3ae0e3ae60beb75b4360abb5f77271ccfa153f74e334181bf201fdf799c200"
     },
     {
       "source": "transport/sudoku/internal/config/users.go",
@@ -356,30 +217,6 @@
       "adapted_sha256": "cc53c6a2efc66076004939915c919e7adc64dcc448b290d57f17bf9e63963c5b"
     },
     {
-      "source": "transport/sudoku/internal/protocol/address_bench_test.go",
-      "path": "transport/internal/protocol/address_bench_test.go",
-      "source_sha256": "d94dc9a0bb71b415061de084755f06629458304cfcba510e8ce71a96e2db7892",
-      "adapted_sha256": "d94dc9a0bb71b415061de084755f06629458304cfcba510e8ce71a96e2db7892"
-    },
-    {
-      "source": "transport/sudoku/internal/protocol/address_test.go",
-      "path": "transport/internal/protocol/address_test.go",
-      "source_sha256": "09c8bbf70260ddc2daec70add3bb3962d1b11d563947d327435305712d1fa8c7",
-      "adapted_sha256": "09c8bbf70260ddc2daec70add3bb3962d1b11d563947d327435305712d1fa8c7"
-    },
-    {
-      "source": "transport/sudoku/internal/protocol/golden_test.go",
-      "path": "transport/internal/protocol/golden_test.go",
-      "source_sha256": "c26163bc7fddeebde6d7b77be88816c1d55c3714cf5ea886c0324ae5b670398d",
-      "adapted_sha256": "c26163bc7fddeebde6d7b77be88816c1d55c3714cf5ea886c0324ae5b670398d"
-    },
-    {
-      "source": "transport/sudoku/internal/protocol/golden_vectors_test.go",
-      "path": "transport/internal/protocol/golden_vectors_test.go",
-      "source_sha256": "f702a5917e877959cc86aa22161afeac485346a41ad885c02112c800bc7cac6c",
-      "adapted_sha256": "f702a5917e877959cc86aa22161afeac485346a41ad885c02112c800bc7cac6c"
-    },
-    {
       "source": "transport/sudoku/internal/reverse/client_session.go",
       "path": "transport/internal/reverse/client_session.go",
       "source_sha256": "bd8379b2bd1bf1e2f6f533c178d08162b2501ddf62405aedefe2952f164a3fe3",
@@ -392,28 +229,10 @@
       "adapted_sha256": "29554d8b8c68fa872aa342cc43ba35c31f2196d9f5f8796b4743a8c391d081f9"
     },
     {
-      "source": "transport/sudoku/internal/reverse/manager_test.go",
-      "path": "transport/internal/reverse/manager_test.go",
-      "source_sha256": "4b9074ee258b8102f7e761ea0ed027b9cf67849f541022adadfde1fe013c277f",
-      "adapted_sha256": "94e14dabbaf68670fa28d2979107deb49baf1ea31e969f12a649db4f9bd16711"
-    },
-    {
       "source": "transport/sudoku/internal/reverse/proxy.go",
       "path": "transport/internal/reverse/proxy.go",
       "source_sha256": "a60703651c694e4e002e00bbef6fac10a7d90aebd36b7a17c9ef8ea4af737279",
       "adapted_sha256": "b8219c51d968c03f9971b6b2ef3beb3e08272caf28b2fb722a500a23a51be7c1"
-    },
-    {
-      "source": "transport/sudoku/internal/reverse/proxy_test.go",
-      "path": "transport/internal/reverse/proxy_test.go",
-      "source_sha256": "eb989af0f2ec1a2001912766532097b18a6a60da7194d5011acd99c936952973",
-      "adapted_sha256": "eb989af0f2ec1a2001912766532097b18a6a60da7194d5011acd99c936952973"
-    },
-    {
-      "source": "transport/sudoku/internal/reverse/rewrite/bench_test.go",
-      "path": "transport/internal/reverse/rewrite/bench_test.go",
-      "source_sha256": "6cd07e56cec310c461b7f24e371e888db0c0c89a04d1eb32e5c7dd05761214db",
-      "adapted_sha256": "6cd07e56cec310c461b7f24e371e888db0c0c89a04d1eb32e5c7dd05761214db"
     },
     {
       "source": "transport/sudoku/internal/reverse/rewrite/body.go",
@@ -422,22 +241,10 @@
       "adapted_sha256": "f2ba45fad5cef110c6df309b92abd4a8e35832d62ff83ea4e8d10a8e54e63c11"
     },
     {
-      "source": "transport/sudoku/internal/reverse/rewrite/body_test.go",
-      "path": "transport/internal/reverse/rewrite/body_test.go",
-      "source_sha256": "281faa86011d0cf85dac15b141b31b3b0da9d81af2b368e9b51b39bc28ff3f90",
-      "adapted_sha256": "281faa86011d0cf85dac15b141b31b3b0da9d81af2b368e9b51b39bc28ff3f90"
-    },
-    {
       "source": "transport/sudoku/internal/reverse/rewrite/headers.go",
       "path": "transport/internal/reverse/rewrite/headers.go",
       "source_sha256": "a423d1b4015d88cbf0736469b692c690a30ea73e7bfeedd5889e56ba671463aa",
       "adapted_sha256": "a423d1b4015d88cbf0736469b692c690a30ea73e7bfeedd5889e56ba671463aa"
-    },
-    {
-      "source": "transport/sudoku/internal/reverse/rewrite/headers_test.go",
-      "path": "transport/internal/reverse/rewrite/headers_test.go",
-      "source_sha256": "be865e37b77718374df1fe3cd8fb236251ff139f0aea0322fbde4da5b0602711",
-      "adapted_sha256": "be865e37b77718374df1fe3cd8fb236251ff139f0aea0322fbde4da5b0602711"
     },
     {
       "source": "transport/sudoku/internal/reverse/rewrite/html.go",
@@ -446,22 +253,10 @@
       "adapted_sha256": "0a30e67a5432f389d15a8e72447d4dcaf1ad2b50803bbf1a1d8912a57c242271"
     },
     {
-      "source": "transport/sudoku/internal/reverse/rewrite/html_test.go",
-      "path": "transport/internal/reverse/rewrite/html_test.go",
-      "source_sha256": "f733a44becd3c90476faae21d4ff302e55ec096be3687de9396f206b7f2c5ea0",
-      "adapted_sha256": "f733a44becd3c90476faae21d4ff302e55ec096be3687de9396f206b7f2c5ea0"
-    },
-    {
       "source": "transport/sudoku/internal/reverse/rewrite/paths.go",
       "path": "transport/internal/reverse/rewrite/paths.go",
       "source_sha256": "8912d4bd6f39a54420f033c69caf2aa018306783395bfd8d344a2f6581464ef3",
       "adapted_sha256": "8912d4bd6f39a54420f033c69caf2aa018306783395bfd8d344a2f6581464ef3"
-    },
-    {
-      "source": "transport/sudoku/internal/reverse/rewrite/paths_test.go",
-      "path": "transport/internal/reverse/rewrite/paths_test.go",
-      "source_sha256": "126af7f23ba17d0d7d5474bd87ef79af3052a5f2d415aaa7487317603492ddbc",
-      "adapted_sha256": "126af7f23ba17d0d7d5474bd87ef79af3052a5f2d415aaa7487317603492ddbc"
     },
     {
       "source": "transport/sudoku/internal/reverse/rewrite/rewrite.go",
@@ -476,12 +271,6 @@
       "adapted_sha256": "de5c8dd09bee580306c1cae57c5d798d27a5e7d463b0aeecbd7adb7b182695cf"
     },
     {
-      "source": "transport/sudoku/internal/reverse/router_test.go",
-      "path": "transport/internal/reverse/router_test.go",
-      "source_sha256": "ae6aaa9defc96448ea15346cba12875078ab557d453ae00cb838eb02c9260f89",
-      "adapted_sha256": "3dc169a907918ade2115b2efd5db6aab9f84dbffdaef65468b2256d44d2f2418"
-    },
-    {
       "source": "transport/sudoku/internal/reverse/server_session.go",
       "path": "transport/internal/reverse/server_session.go",
       "source_sha256": "f6e04fdbc5d8b37c592158157b7972ad45b9abfaaa3245a66475d3572a75dbe1",
@@ -494,22 +283,10 @@
       "adapted_sha256": "55e7aabd1db61f062864887588fcbe4f000c9f3f1e4fbd8cd042cf2e7c48d312"
     },
     {
-      "source": "transport/sudoku/internal/reverse/ws_tunnel_test.go",
-      "path": "transport/internal/reverse/ws_tunnel_test.go",
-      "source_sha256": "41acaf90c29ec031b2e8aea01e4a3362de1d81020253db09cea5dc41adb2ab83",
-      "adapted_sha256": "41acaf90c29ec031b2e8aea01e4a3362de1d81020253db09cea5dc41adb2ab83"
-    },
-    {
       "source": "transport/sudoku/internal/tunnel/balanced_dialer.go",
       "path": "transport/internal/tunnel/balanced_dialer.go",
       "source_sha256": "550f0c175230b17ca572580b9e2b8cdafce5d1b487144bba3fc72ff42beda97f",
       "adapted_sha256": "550f0c175230b17ca572580b9e2b8cdafce5d1b487144bba3fc72ff42beda97f"
-    },
-    {
-      "source": "transport/sudoku/internal/tunnel/balanced_dialer_test.go",
-      "path": "transport/internal/tunnel/balanced_dialer_test.go",
-      "source_sha256": "f1dbf9b56f952015badcf421a9c882d936fcce28d3877a38c24e51a13ad06e59",
-      "adapted_sha256": "f1dbf9b56f952015badcf421a9c882d936fcce28d3877a38c24e51a13ad06e59"
     },
     {
       "source": "transport/sudoku/internal/tunnel/conns.go",
@@ -518,40 +295,16 @@
       "adapted_sha256": "ff3fb7c15f4651028f75d8380bea5a27dbc6626830d79c4dc4a5645f11c79da5"
     },
     {
-      "source": "transport/sudoku/internal/tunnel/conns_test.go",
-      "path": "transport/internal/tunnel/conns_test.go",
-      "source_sha256": "85a9cc42d2de8eb4b1334f18c8414a04737755cdfb62d9fdc1cdd13e468c24e6",
-      "adapted_sha256": "85a9cc42d2de8eb4b1334f18c8414a04737755cdfb62d9fdc1cdd13e468c24e6"
-    },
-    {
       "source": "transport/sudoku/internal/tunnel/dialer.go",
       "path": "transport/internal/tunnel/dialer.go",
       "source_sha256": "e9906f3192583b5dd41e4af69c3fea090add3b9ecb0ee1816386d293b94768d5",
       "adapted_sha256": "5e9e485de09fc4b44019120f0bcd5058acc5b9ae25b776c8d5abad58342ee4b5"
     },
     {
-      "source": "transport/sudoku/internal/tunnel/dialer_test.go",
-      "path": "transport/internal/tunnel/dialer_test.go",
-      "source_sha256": "6bf5cec23f2db872337041fc0ad7cfce06438d5069e4312e8433a4cbe12c4855",
-      "adapted_sha256": "134b6677a94e96df7f09bc9e030299448348677de65a5872bd784f3d9e2e5377"
-    },
-    {
       "source": "transport/sudoku/internal/tunnel/early.go",
       "path": "transport/internal/tunnel/early.go",
       "source_sha256": "e4782f917de4409f6db3531101f0f27dc0cf3d1788be87c85853e9ffe8a6e81b",
       "adapted_sha256": "2ec61377aa6ad752bf6e7fffdcebc4d5428a8a3658e6ea0281c507daaaf608ae"
-    },
-    {
-      "source": "transport/sudoku/internal/tunnel/golden_vectors_test.go",
-      "path": "transport/internal/tunnel/golden_vectors_test.go",
-      "source_sha256": "a26810e03e735c67d5dba9d6052b5c70d95e9f6b893c0f39ad649b1c33301916",
-      "adapted_sha256": "a26810e03e735c67d5dba9d6052b5c70d95e9f6b893c0f39ad649b1c33301916"
-    },
-    {
-      "source": "transport/sudoku/internal/tunnel/golden_wire_test.go",
-      "path": "transport/internal/tunnel/golden_wire_test.go",
-      "source_sha256": "dda0fa7357e03bc90a05e2416964ee534a3da2f6bb329531fa5bd0e522360dac",
-      "adapted_sha256": "dda0fa7357e03bc90a05e2416964ee534a3da2f6bb329531fa5bd0e522360dac"
     },
     {
       "source": "transport/sudoku/internal/tunnel/handshake_client.go",
@@ -566,12 +319,6 @@
       "adapted_sha256": "b208d977452431b9027803f1e7425bb10751bfeec1181d4e52f3eb0133eb0353"
     },
     {
-      "source": "transport/sudoku/internal/tunnel/idle_mem_test.go",
-      "path": "transport/internal/tunnel/idle_mem_test.go",
-      "source_sha256": "832cf31ba1834cd8650d662c03a8ef02133c473765986c2fa555b9561ba4a002",
-      "adapted_sha256": "f67c5633e4032350ee40efac35a76e2fa0ce2ff08c9742dc538620394ddf6ade"
-    },
-    {
       "source": "transport/sudoku/internal/tunnel/kip.go",
       "path": "transport/internal/tunnel/kip.go",
       "source_sha256": "13b17a5f9bfc22d9fad446eb8aa6df2cca38d50b178ceb2a09e965ab160b2d1c",
@@ -584,34 +331,10 @@
       "adapted_sha256": "b035d859fae42efc17025d87cbc8d8c556c497a606653c313e49e231f58f183b"
     },
     {
-      "source": "transport/sudoku/internal/tunnel/kip_hello_test.go",
-      "path": "transport/internal/tunnel/kip_hello_test.go",
-      "source_sha256": "7443a444de0e4103e2021705b92b99b64bb9f6c2b18d9aab5870a5724ffec324",
-      "adapted_sha256": "add91aa09e6a64b5d26ccc453b86ed22d18e537ceb6f7ac1096b3c8c5b798445"
-    },
-    {
-      "source": "transport/sudoku/internal/tunnel/kip_test.go",
-      "path": "transport/internal/tunnel/kip_test.go",
-      "source_sha256": "673be897b5aecbfe027f9d8cf7e7645eef3d1a801683f10ccab27c32f5121e3f",
-      "adapted_sha256": "ef0b7f7502c2599ba6065512d29e7e9b5805dafa659c9a71c1ba08f1e8b2519e"
-    },
-    {
-      "source": "transport/sudoku/internal/tunnel/mux_bench_test.go",
-      "path": "transport/internal/tunnel/mux_bench_test.go",
-      "source_sha256": "9c9c154d078e06a038a9427991fc407a1ea1ea187813b93b0d3fb01d40916603",
-      "adapted_sha256": "9c9c154d078e06a038a9427991fc407a1ea1ea187813b93b0d3fb01d40916603"
-    },
-    {
       "source": "transport/sudoku/internal/tunnel/mux_chunk.go",
       "path": "transport/internal/tunnel/mux_chunk.go",
       "source_sha256": "469968b49f2b9adc9e240afd0ff5966e3ddb8249de7c4a4dac23995d333eae0c",
       "adapted_sha256": "469968b49f2b9adc9e240afd0ff5966e3ddb8249de7c4a4dac23995d333eae0c"
-    },
-    {
-      "source": "transport/sudoku/internal/tunnel/mux_chunk_test.go",
-      "path": "transport/internal/tunnel/mux_chunk_test.go",
-      "source_sha256": "071de7827ba3c3af76e1578b7425bd208d05862fc4be23b550288c55f2201930",
-      "adapted_sha256": "071de7827ba3c3af76e1578b7425bd208d05862fc4be23b550288c55f2201930"
     },
     {
       "source": "transport/sudoku/internal/tunnel/mux_client.go",
@@ -620,34 +343,16 @@
       "adapted_sha256": "657638187f4645842d462f6243ea2b78ec49120987b4cae2c2394cefaa260480"
     },
     {
-      "source": "transport/sudoku/internal/tunnel/mux_coalesce_test.go",
-      "path": "transport/internal/tunnel/mux_coalesce_test.go",
-      "source_sha256": "4221ead7e14372482c8ebd37c5598a8a2ce337d2ea5eabf4fcd6e0f30c7e02a8",
-      "adapted_sha256": "4221ead7e14372482c8ebd37c5598a8a2ce337d2ea5eabf4fcd6e0f30c7e02a8"
-    },
-    {
       "source": "transport/sudoku/internal/tunnel/mux_copy.go",
       "path": "transport/internal/tunnel/mux_copy.go",
       "source_sha256": "18713482394eb8765a730fed78d22e55fd1d3c859efa04e7b74c83b5fe27d619",
       "adapted_sha256": "18713482394eb8765a730fed78d22e55fd1d3c859efa04e7b74c83b5fe27d619"
     },
     {
-      "source": "transport/sudoku/internal/tunnel/mux_copy_test.go",
-      "path": "transport/internal/tunnel/mux_copy_test.go",
-      "source_sha256": "be22fd88b28dfdf0e4414f1200f4305f6e098635a6c342c95cf7c9af21d6ff12",
-      "adapted_sha256": "be22fd88b28dfdf0e4414f1200f4305f6e098635a6c342c95cf7c9af21d6ff12"
-    },
-    {
       "source": "transport/sudoku/internal/tunnel/mux_dialer.go",
       "path": "transport/internal/tunnel/mux_dialer.go",
       "source_sha256": "c1de6c65a2e9f11270d145fd5d4cecfbf574f33a8baf6c31dd25342263f77939",
       "adapted_sha256": "4683c9739bbfc24aa34a107a8b576b1ea7b88c835f9a0a0a4ae1e23ac067aee3"
-    },
-    {
-      "source": "transport/sudoku/internal/tunnel/mux_keepalive_test.go",
-      "path": "transport/internal/tunnel/mux_keepalive_test.go",
-      "source_sha256": "be40c1d7176a1b35eb94d913263b398e0a57fa985737c3218c28cee11aeb8953",
-      "adapted_sha256": "be40c1d7176a1b35eb94d913263b398e0a57fa985737c3218c28cee11aeb8953"
     },
     {
       "source": "transport/sudoku/internal/tunnel/mux_server.go",
@@ -662,12 +367,6 @@
       "adapted_sha256": "2d3a2cba2e704aba230312c02812c3d594ad98fe689b19bb596a0682ffa589f1"
     },
     {
-      "source": "transport/sudoku/internal/tunnel/mux_session_test.go",
-      "path": "transport/internal/tunnel/mux_session_test.go",
-      "source_sha256": "d569ea97354a898bf44314c4f494456e1717e6b04adbd55e460e92b43d15e1bd",
-      "adapted_sha256": "d569ea97354a898bf44314c4f494456e1717e6b04adbd55e460e92b43d15e1bd"
-    },
-    {
       "source": "transport/sudoku/internal/tunnel/mux_stream.go",
       "path": "transport/internal/tunnel/mux_stream.go",
       "source_sha256": "5c4c207764fab222c5ee82e7441377002bc34544798ee1a31f34580e35c2c831",
@@ -678,12 +377,6 @@
       "path": "transport/internal/tunnel/obfs_conn.go",
       "source_sha256": "ac1d9ab12a1d50bbb9db73852fd0cd88834225a45e055f4f8efec8ba8c105fc4",
       "adapted_sha256": "900c51b595f4e774cecf84ef5cf078ec72f850ba54cb31d9230734bc097df84d"
-    },
-    {
-      "source": "transport/sudoku/internal/tunnel/obfs_conn_buffers_test.go",
-      "path": "transport/internal/tunnel/obfs_conn_buffers_test.go",
-      "source_sha256": "fa8e96ab572ef8bc15a1ee0b046e9fb9fb31c3c0866c9b05408aeb1a87e196b9",
-      "adapted_sha256": "9be86d7f61eb4d1caf23a1222fd39bab2b3b81b5ae6fa6828d0994026abedf09"
     },
     {
       "source": "transport/sudoku/internal/tunnel/pipe_conn.go",
@@ -698,18 +391,6 @@
       "adapted_sha256": "8a914358076065e9a981f51deb1b7db8860d04418dd30d1d21b10ae99639688c"
     },
     {
-      "source": "transport/sudoku/internal/tunnel/replay_test.go",
-      "path": "transport/internal/tunnel/replay_test.go",
-      "source_sha256": "65a2a499c06eecba362b9909ead27c78edf872445ac28a6576a232d7e82628eb",
-      "adapted_sha256": "65a2a499c06eecba362b9909ead27c78edf872445ac28a6576a232d7e82628eb"
-    },
-    {
-      "source": "transport/sudoku/internal/tunnel/reverse_uplink_test.go",
-      "path": "transport/internal/tunnel/reverse_uplink_test.go",
-      "source_sha256": "075c3e16c92a9eeff02928400e84e3b23229cfa5e802f91e2b55c610513bb77c",
-      "adapted_sha256": "95b1686a7a511715f1b9f88203bedf11ca1f2de63c3f565d91f050120ba5c9fb"
-    },
-    {
       "source": "transport/sudoku/internal/tunnel/session_keys.go",
       "path": "transport/internal/tunnel/session_keys.go",
       "source_sha256": "11866e3005c354af26651115442a564b05c28603c36981c533c1c32316dc0450",
@@ -722,34 +403,10 @@
       "adapted_sha256": "3167378d1edb7af71d8d3136e472637d55606f45fb202227bc7896aa33562469"
     },
     {
-      "source": "transport/sudoku/internal/tunnel/table_probe_test.go",
-      "path": "transport/internal/tunnel/table_probe_test.go",
-      "source_sha256": "d907026ad5b3813459d53f55731aecbf7f8bd9be25d7746e464988a384b5fac7",
-      "adapted_sha256": "fe2966531445efac1197eebd656479dd65577d5a76509b0d354fffb365a07d35"
-    },
-    {
-      "source": "transport/sudoku/internal/tunnel/tunnel_test.go",
-      "path": "transport/internal/tunnel/tunnel_test.go",
-      "source_sha256": "59d7415db3a4f41901ac10f726d7c6e7b3f876f7eaa95ee0e7bd85692e5feb40",
-      "adapted_sha256": "ed814431d65d139b05f5ba53aba8ea5b8d4904cfd928b62aba0454c33ab5e467"
-    },
-    {
       "source": "transport/sudoku/internal/tunnel/uot.go",
       "path": "transport/internal/tunnel/uot.go",
       "source_sha256": "b45e7495446898097d0a4255c8f1f02fa05c1736a3c02a92520cd663b5125d26",
       "adapted_sha256": "363c9d44c58154b548515362812f15d246e911c361f6fdb312d3458af41edf9f"
-    },
-    {
-      "source": "transport/sudoku/internal/tunnel/uot_bench_test.go",
-      "path": "transport/internal/tunnel/uot_bench_test.go",
-      "source_sha256": "f00b099fa17e95fcfb65dbe62d847dd3dc245d7172df7277ac99aa552748ac10",
-      "adapted_sha256": "64f9c61e7d7a4d4e31f7593348d26a323494514352d96ad7183a546dbee00992"
-    },
-    {
-      "source": "transport/sudoku/internal/tunnel/uot_test.go",
-      "path": "transport/internal/tunnel/uot_test.go",
-      "source_sha256": "71b01ef788369e1b990065237c8543c6bc750bd9b90df713c06ceeb85784f824",
-      "adapted_sha256": "a131e7035959fc11ab864b0eaca02f54a88ef081fa4e24e4f1d19dc9a32054d4"
     },
     {
       "source": "transport/sudoku/internal/users/usage.go",
@@ -764,28 +421,10 @@
       "adapted_sha256": "54bd74e4e92f27593f1ad72ba82aaf8d158313f791760c314078b50e8a82b7fb"
     },
     {
-      "source": "transport/sudoku/internal/users/users_test.go",
-      "path": "transport/internal/users/users_test.go",
-      "source_sha256": "9489b8e121f22fc2cfb965e1806291230053e9b3f1ae72cf1cd4d8ab249a54f4",
-      "adapted_sha256": "fa269d90689bce3320085af94a3a77038e5c2b18857d029cacc05b3a9011a7a5"
-    },
-    {
       "source": "transport/sudoku/logx/logx.go",
       "path": "transport/logx/logx.go",
       "source_sha256": "068e1c88a1c3479a46cf0bdf132cd37742d0618586eebe9c3599b8bdfe725db0",
       "adapted_sha256": "068e1c88a1c3479a46cf0bdf132cd37742d0618586eebe9c3599b8bdfe725db0"
-    },
-    {
-      "source": "transport/sudoku/logx/logx_bench_test.go",
-      "path": "transport/logx/logx_bench_test.go",
-      "source_sha256": "a5becd7ea2c4bc848322f964b1fed59224d0494faa5d83a2082186f8e7a339d3",
-      "adapted_sha256": "a5becd7ea2c4bc848322f964b1fed59224d0494faa5d83a2082186f8e7a339d3"
-    },
-    {
-      "source": "transport/sudoku/logx/logx_test.go",
-      "path": "transport/logx/logx_test.go",
-      "source_sha256": "5dad9a0f31c935bdeefd67f499020aa060aba96ee5285e121c3bcb5e190cfbab",
-      "adapted_sha256": "5dad9a0f31c935bdeefd67f499020aa060aba96ee5285e121c3bcb5e190cfbab"
     },
     {
       "source": "transport/sudoku/logx/stdlog.go",
@@ -800,12 +439,6 @@
       "adapted_sha256": "2cdf49e743826f8691b985860b8a03404f242e5b7d1657f96c9b8613206fda17"
     },
     {
-      "source": "transport/sudoku/obfs/httpmask/chan_conn_test.go",
-      "path": "transport/obfs/httpmask/chan_conn_test.go",
-      "source_sha256": "72e8dcd31d71fd1b160818d9afb1e9da74b99a1be81fe09b6baa09c6cb26344a",
-      "adapted_sha256": "72e8dcd31d71fd1b160818d9afb1e9da74b99a1be81fe09b6baa09c6cb26344a"
-    },
-    {
       "source": "transport/sudoku/obfs/httpmask/client_preconnect.go",
       "path": "transport/obfs/httpmask/client_preconnect.go",
       "source_sha256": "b291a6d2fb80f8cce7a16f0bb2ad7b86e8213f49645e92b50d7fe2aa23d485f7",
@@ -816,18 +449,6 @@
       "path": "transport/obfs/httpmask/client_request.go",
       "source_sha256": "cd6d18f9097fc038774ef88a6de63e9f44f4da7cf7d61ec1be57af8261eb6cb0",
       "adapted_sha256": "cd6d18f9097fc038774ef88a6de63e9f44f4da7cf7d61ec1be57af8261eb6cb0"
-    },
-    {
-      "source": "transport/sudoku/obfs/httpmask/client_request_bench_test.go",
-      "path": "transport/obfs/httpmask/client_request_bench_test.go",
-      "source_sha256": "8bc7c55fc659bfa90a9bb8c040876f2d280b551ea4e895df54705264acf8bde5",
-      "adapted_sha256": "8bc7c55fc659bfa90a9bb8c040876f2d280b551ea4e895df54705264acf8bde5"
-    },
-    {
-      "source": "transport/sudoku/obfs/httpmask/client_request_test.go",
-      "path": "transport/obfs/httpmask/client_request_test.go",
-      "source_sha256": "46cb0c0ab853f1e8ca8bd56068d8613272da1a8fcea59b4480473e758c1af4f9",
-      "adapted_sha256": "46cb0c0ab853f1e8ca8bd56068d8613272da1a8fcea59b4480473e758c1af4f9"
     },
     {
       "source": "transport/sudoku/obfs/httpmask/client_session.go",
@@ -849,40 +470,10 @@
       "local_changes": "Use the embedding DialContext in the WebSocket branch to preserve sing-box Android protect, detours and pinned-network isolation."
     },
     {
-      "source": "transport/sudoku/obfs/httpmask/dial_target_test.go",
-      "path": "transport/obfs/httpmask/dial_target_test.go",
-      "source_sha256": "dfac17b77971ec03f1b84cf5744909d2c898463de0f328bcd0b880a5241c0741",
-      "adapted_sha256": "dfac17b77971ec03f1b84cf5744909d2c898463de0f328bcd0b880a5241c0741"
-    },
-    {
-      "source": "transport/sudoku/obfs/httpmask/golden_wire_client_test.go",
-      "path": "transport/obfs/httpmask/golden_wire_client_test.go",
-      "source_sha256": "2b7f5adf19cc3005ea35e4c5534f0880d9e15e877579d83026c9eace0fd0c4e6",
-      "adapted_sha256": "2b7f5adf19cc3005ea35e4c5534f0880d9e15e877579d83026c9eace0fd0c4e6"
-    },
-    {
-      "source": "transport/sudoku/obfs/httpmask/golden_wire_server_test.go",
-      "path": "transport/obfs/httpmask/golden_wire_server_test.go",
-      "source_sha256": "a5061385963e4988a331d559acd9f5d8cbb251e6378c44a67a2c828dce1cdc6d",
-      "adapted_sha256": "5a65d2e56cc188c04b4f7bd32182086ceb520d2a834033b0195d6ad19fac12ad"
-    },
-    {
-      "source": "transport/sudoku/obfs/httpmask/golden_wire_ws_test.go",
-      "path": "transport/obfs/httpmask/golden_wire_ws_test.go",
-      "source_sha256": "1290e5029789bed2942cf71ec15f7eee9addb60e872af70b3a324c1a4b91010e",
-      "adapted_sha256": "1290e5029789bed2942cf71ec15f7eee9addb60e872af70b3a324c1a4b91010e"
-    },
-    {
       "source": "transport/sudoku/obfs/httpmask/half_pipe.go",
       "path": "transport/obfs/httpmask/half_pipe.go",
       "source_sha256": "ebf62aac8c134d28346251d0ac600ebd28a44b6ba03f84073307830a7d8b9c79",
       "adapted_sha256": "ebf62aac8c134d28346251d0ac600ebd28a44b6ba03f84073307830a7d8b9c79"
-    },
-    {
-      "source": "transport/sudoku/obfs/httpmask/half_pipe_test.go",
-      "path": "transport/obfs/httpmask/half_pipe_test.go",
-      "source_sha256": "52f00cbd0cf0e99952e62f93ec09a96176ec71e0a066aea08b4880931f02a8a2",
-      "adapted_sha256": "52f00cbd0cf0e99952e62f93ec09a96176ec71e0a066aea08b4880931f02a8a2"
     },
     {
       "source": "transport/sudoku/obfs/httpmask/header_profiles.go",
@@ -895,12 +486,6 @@
       "path": "transport/obfs/httpmask/legacy_prelude.go",
       "source_sha256": "e4d62fa796b33fd01be9694c70917a32244190f96fe627a8a5792b0ea5e356a3",
       "adapted_sha256": "e4d62fa796b33fd01be9694c70917a32244190f96fe627a8a5792b0ea5e356a3"
-    },
-    {
-      "source": "transport/sudoku/obfs/httpmask/legacy_prelude_test.go",
-      "path": "transport/obfs/httpmask/legacy_prelude_test.go",
-      "source_sha256": "896265d9bbcf1cd7a4f521dd9274ddeeb0f6e1bb0576dcc4cfe33ae2d3a5d9b3",
-      "adapted_sha256": "896265d9bbcf1cd7a4f521dd9274ddeeb0f6e1bb0576dcc4cfe33ae2d3a5d9b3"
     },
     {
       "source": "transport/sudoku/obfs/httpmask/path_root.go",
@@ -945,12 +530,6 @@
       "adapted_sha256": "ee4a3113e7cecb87428560cb95afacdbd068baaf515e4e35e03c9dfbd0081cde"
     },
     {
-      "source": "transport/sudoku/obfs/httpmask/server_request_test.go",
-      "path": "transport/obfs/httpmask/server_request_test.go",
-      "source_sha256": "d840856a5d07a6e63fa6b925e52bc2cb50530bcc94a85f871cbe9ec4ee769c7b",
-      "adapted_sha256": "d840856a5d07a6e63fa6b925e52bc2cb50530bcc94a85f871cbe9ec4ee769c7b"
-    },
-    {
       "source": "transport/sudoku/obfs/httpmask/server_responses.go",
       "path": "transport/obfs/httpmask/server_responses.go",
       "source_sha256": "b2b72b12d4996c841079e0bfb3e11eaf7c45cc775c9b947846b26a5959efb61b",
@@ -975,12 +554,6 @@
       "adapted_sha256": "db1b69cf269a50d6bb8e7be49d346643a6b8655f04534dbc38c11a8b357cc56f"
     },
     {
-      "source": "transport/sudoku/obfs/httpmask/session_pull_test.go",
-      "path": "transport/obfs/httpmask/session_pull_test.go",
-      "source_sha256": "652e5e37dffaaf3ad6b30eaf80533e21c77e4a55aa35ddf4a9c1ab0aa8a4a0be",
-      "adapted_sha256": "652e5e37dffaaf3ad6b30eaf80533e21c77e4a55aa35ddf4a9c1ab0aa8a4a0be"
-    },
-    {
       "source": "transport/sudoku/obfs/httpmask/session_store.go",
       "path": "transport/obfs/httpmask/session_store.go",
       "source_sha256": "b8e8761f6fdef219e366c4500e6dc6491423412b5d4e07e3a75a917a05d441ae",
@@ -999,34 +572,10 @@
       "adapted_sha256": "068990de55252231203ed84b76a9280c554a4ac33990cbfe48412c8b827b847b"
     },
     {
-      "source": "transport/sudoku/obfs/httpmask/tunnel_bench_test.go",
-      "path": "transport/obfs/httpmask/tunnel_bench_test.go",
-      "source_sha256": "8db80be682fbcf23f4e75ea050388f52d606439532ae8914d4ebf6884dd4c94c",
-      "adapted_sha256": "8db80be682fbcf23f4e75ea050388f52d606439532ae8914d4ebf6884dd4c94c"
-    },
-    {
-      "source": "transport/sudoku/obfs/httpmask/tunnel_idle_bench_unix_test.go",
-      "path": "transport/obfs/httpmask/tunnel_idle_bench_unix_test.go",
-      "source_sha256": "79aa1d89b8831110006344a4be50ed7ae6c8f0777e221e41e2aceac057e3771a",
-      "adapted_sha256": "79aa1d89b8831110006344a4be50ed7ae6c8f0777e221e41e2aceac057e3771a"
-    },
-    {
-      "source": "transport/sudoku/obfs/httpmask/tunnel_test.go",
-      "path": "transport/obfs/httpmask/tunnel_test.go",
-      "source_sha256": "942522f30fec89decc64203d34b441b8f515c8ef168b067f38d3d25e965ec360",
-      "adapted_sha256": "942522f30fec89decc64203d34b441b8f515c8ef168b067f38d3d25e965ec360"
-    },
-    {
       "source": "transport/sudoku/obfs/httpmask/upload_scratch.go",
       "path": "transport/obfs/httpmask/upload_scratch.go",
       "source_sha256": "5406a35d93e6f27ba79028d5cbd260f83452fa16fd82b4730442bf3ed36b7947",
       "adapted_sha256": "5406a35d93e6f27ba79028d5cbd260f83452fa16fd82b4730442bf3ed36b7947"
-    },
-    {
-      "source": "transport/sudoku/obfs/httpmask/upload_scratch_test.go",
-      "path": "transport/obfs/httpmask/upload_scratch_test.go",
-      "source_sha256": "6c8f0bca6b75ed39c2ee87b84eaf032fc3194cf75a13bc6cae4fc55cf9823db8",
-      "adapted_sha256": "6c8f0bca6b75ed39c2ee87b84eaf032fc3194cf75a13bc6cae4fc55cf9823db8"
     },
     {
       "source": "transport/sudoku/obfs/httpmask/ws_auth.go",
@@ -1035,22 +584,10 @@
       "adapted_sha256": "df1631cece223dd2e1af9be60d588d3f1414b8dea8b3cd3bb9a4dd4f2a4b73c9"
     },
     {
-      "source": "transport/sudoku/obfs/httpmask/ws_test.go",
-      "path": "transport/obfs/httpmask/ws_test.go",
-      "source_sha256": "765a3b7b00b83bd8b63ebf92defa1da20a4b428d3c9f322ff5a168660a4d29cb",
-      "adapted_sha256": "765a3b7b00b83bd8b63ebf92defa1da20a4b428d3c9f322ff5a168660a4d29cb"
-    },
-    {
       "source": "transport/sudoku/obfs/sudoku/ascii_mode.go",
       "path": "transport/obfs/sudoku/ascii_mode.go",
       "source_sha256": "156eea4f082b2745750dd200fd0395a242267edc9a12091193461333a03cec07",
       "adapted_sha256": "156eea4f082b2745750dd200fd0395a242267edc9a12091193461333a03cec07"
-    },
-    {
-      "source": "transport/sudoku/obfs/sudoku/bench_test.go",
-      "path": "transport/obfs/sudoku/bench_test.go",
-      "source_sha256": "e0a5d6fad5d04389ab7c56562a522326e9cf8bf0e1d828b476f60f6bf62d303c",
-      "adapted_sha256": "e0a5d6fad5d04389ab7c56562a522326e9cf8bf0e1d828b476f60f6bf62d303c"
     },
     {
       "source": "transport/sudoku/obfs/sudoku/classic_decode.go",
@@ -1071,18 +608,6 @@
       "adapted_sha256": "571055cb87c16a5829c324849813413d50bc08230da5e78d8186af0db7d1d698"
     },
     {
-      "source": "transport/sudoku/obfs/sudoku/conn_edge_test.go",
-      "path": "transport/obfs/sudoku/conn_edge_test.go",
-      "source_sha256": "b033c27d129ead9acf6958b2a84e03dff25b0be260f09a8e4e5aa21d45995992",
-      "adapted_sha256": "b033c27d129ead9acf6958b2a84e03dff25b0be260f09a8e4e5aa21d45995992"
-    },
-    {
-      "source": "transport/sudoku/obfs/sudoku/custom_layout_test.go",
-      "path": "transport/obfs/sudoku/custom_layout_test.go",
-      "source_sha256": "57226de46dc93b5d05033b8e29ff43365cf9692823b4a64d7904444fc02841e6",
-      "adapted_sha256": "57226de46dc93b5d05033b8e29ff43365cf9692823b4a64d7904444fc02841e6"
-    },
-    {
       "source": "transport/sudoku/obfs/sudoku/directional.go",
       "path": "transport/obfs/sudoku/directional.go",
       "source_sha256": "8df8eaa0192a475637f0facb1762989a79d6929faf81974d975e60e4643b95e3",
@@ -1095,18 +620,6 @@
       "adapted_sha256": "db7d8963dc0fea07933f89c23ed46fd340b5b56666e6f8e7333d886936d1e396"
     },
     {
-      "source": "transport/sudoku/obfs/sudoku/downlink_test.go",
-      "path": "transport/obfs/sudoku/downlink_test.go",
-      "source_sha256": "69f87cbe109ec563f9d5c3675ce751e5d9bc0201f424924c243a4ebad396d2c8",
-      "adapted_sha256": "69f87cbe109ec563f9d5c3675ce751e5d9bc0201f424924c243a4ebad396d2c8"
-    },
-    {
-      "source": "transport/sudoku/obfs/sudoku/fuzz_roundtrip_test.go",
-      "path": "transport/obfs/sudoku/fuzz_roundtrip_test.go",
-      "source_sha256": "1843b5f124d256dfaa00c3852c7b0eecd6b5c10834c467461bbdf4ad508dbb77",
-      "adapted_sha256": "1843b5f124d256dfaa00c3852c7b0eecd6b5c10834c467461bbdf4ad508dbb77"
-    },
-    {
       "source": "transport/sudoku/obfs/sudoku/grid.go",
       "path": "transport/obfs/sudoku/grid.go",
       "source_sha256": "ae754fa8b170fafb04da6c073e9cc2ed743206846c7316f50eed878763317e32",
@@ -1117,12 +630,6 @@
       "path": "transport/obfs/sudoku/hint_search.go",
       "source_sha256": "73cc1b86b8db4de4f40a573e5cf40d795a95ed48308c4389db4d3b00c3355d9e",
       "adapted_sha256": "73cc1b86b8db4de4f40a573e5cf40d795a95ed48308c4389db4d3b00c3355d9e"
-    },
-    {
-      "source": "transport/sudoku/obfs/sudoku/idle_memory_test.go",
-      "path": "transport/obfs/sudoku/idle_memory_test.go",
-      "source_sha256": "3eb30beb3e415c6f394364e5a955a3d98a153881d910c41dd537d66b181c9a49",
-      "adapted_sha256": "3eb30beb3e415c6f394364e5a955a3d98a153881d910c41dd537d66b181c9a49"
     },
     {
       "source": "transport/sudoku/obfs/sudoku/layout.go",
@@ -1143,22 +650,10 @@
       "adapted_sha256": "707d1e103658311bf27d7c9429dd992d2647661d44e8b3e8126d9405c2b38f76"
     },
     {
-      "source": "transport/sudoku/obfs/sudoku/packed_compat_test.go",
-      "path": "transport/obfs/sudoku/packed_compat_test.go",
-      "source_sha256": "ff4c75b107d3d92bc10448373b3c47ef050763c0dc17ad8be3eab826bb7de182",
-      "adapted_sha256": "ff4c75b107d3d92bc10448373b3c47ef050763c0dc17ad8be3eab826bb7de182"
-    },
-    {
       "source": "transport/sudoku/obfs/sudoku/packed_decode.go",
       "path": "transport/obfs/sudoku/packed_decode.go",
       "source_sha256": "7d058b8d74ddb3654164ab3c933d9db080d46343804ebf584ba500a5970bafa2",
       "adapted_sha256": "7d058b8d74ddb3654164ab3c933d9db080d46343804ebf584ba500a5970bafa2"
-    },
-    {
-      "source": "transport/sudoku/obfs/sudoku/packed_prefix_test.go",
-      "path": "transport/obfs/sudoku/packed_prefix_test.go",
-      "source_sha256": "d7daa073d41e353386e9ebe5bd8297b8ac43c3815c71c4a4b2d18a83abb8fc05",
-      "adapted_sha256": "d7daa073d41e353386e9ebe5bd8297b8ac43c3815c71c4a4b2d18a83abb8fc05"
     },
     {
       "source": "transport/sudoku/obfs/sudoku/padding_prob.go",
@@ -1179,28 +674,10 @@
       "adapted_sha256": "5079374a65146a361f8e3c3807f739227a8d40ecf0bf0aca79b6f27fb077ba55"
     },
     {
-      "source": "transport/sudoku/obfs/sudoku/read_buffer_test.go",
-      "path": "transport/obfs/sudoku/read_buffer_test.go",
-      "source_sha256": "4d9307d323de6f61de5cef366ad0e1d8be77e8668a72cd4aa97da9d7959c558d",
-      "adapted_sha256": "4d9307d323de6f61de5cef366ad0e1d8be77e8668a72cd4aa97da9d7959c558d"
-    },
-    {
       "source": "transport/sudoku/obfs/sudoku/recorder.go",
       "path": "transport/obfs/sudoku/recorder.go",
       "source_sha256": "7599b93ebfbf35de348f220d272fc162fe5eba2dec2ac76176a45e5ac61c7817",
       "adapted_sha256": "7599b93ebfbf35de348f220d272fc162fe5eba2dec2ac76176a45e5ac61c7817"
-    },
-    {
-      "source": "transport/sudoku/obfs/sudoku/reference_vectors_test.go",
-      "path": "transport/obfs/sudoku/reference_vectors_test.go",
-      "source_sha256": "d668472a27dd7f10057e5f22024a539bd87d38f1de66181840c87a05d021ca6a",
-      "adapted_sha256": "d668472a27dd7f10057e5f22024a539bd87d38f1de66181840c87a05d021ca6a"
-    },
-    {
-      "source": "transport/sudoku/obfs/sudoku/statistics_test.go",
-      "path": "transport/obfs/sudoku/statistics_test.go",
-      "source_sha256": "efbf44357f0b08f6dad9fb89ed5878cc751ee83347eedf51bb0be6256eeb53e9",
-      "adapted_sha256": "efbf44357f0b08f6dad9fb89ed5878cc751ee83347eedf51bb0be6256eeb53e9"
     },
     {
       "source": "transport/sudoku/obfs/sudoku/table.go",
@@ -1216,40 +693,10 @@
       "local_changes": "Import rewrite and client-selected table budget forwarding; pre-allocation resource checks and recoverable allocation error reporting. No table order, duplicates or wire algorithm changes."
     },
     {
-      "source": "transport/sudoku/obfs/sudoku/table_set_test.go",
-      "path": "transport/obfs/sudoku/table_set_test.go",
-      "source_sha256": "1ee4d69bf78ea9c9667f3c04d057aa844d43da962669b00e8516e10b95bf9e79",
-      "adapted_sha256": "1ee4d69bf78ea9c9667f3c04d057aa844d43da962669b00e8516e10b95bf9e79"
-    },
-    {
-      "source": "transport/sudoku/obfs/sudoku/testdata/v051_vectors.json",
-      "path": "transport/obfs/sudoku/testdata/v051_vectors.json",
-      "source_sha256": "afa520512729808d5826f493c6032f3137878a08680037708a7208ebd7cf94ef",
-      "adapted_sha256": "afa520512729808d5826f493c6032f3137878a08680037708a7208ebd7cf94ef"
-    },
-    {
-      "source": "transport/sudoku/obfs/sudoku/testing_helpers_test.go",
-      "path": "transport/obfs/sudoku/testing_helpers_test.go",
-      "source_sha256": "47583af49ce4d083c2f46effeaf5898b3945542020cd6c2a054f405d71d22be9",
-      "adapted_sha256": "47583af49ce4d083c2f46effeaf5898b3945542020cd6c2a054f405d71d22be9"
-    },
-    {
-      "source": "transport/sudoku/obfs/sudoku/wire_compat_test.go",
-      "path": "transport/obfs/sudoku/wire_compat_test.go",
-      "source_sha256": "a564b5523e8db90b8f4d5723785e2a8d61050b8f7fc4ab2addd9808385a45d55",
-      "adapted_sha256": "a564b5523e8db90b8f4d5723785e2a8d61050b8f7fc4ab2addd9808385a45d55"
-    },
-    {
       "source": "transport/sudoku/obfs/sudoku/write_buffer.go",
       "path": "transport/obfs/sudoku/write_buffer.go",
       "source_sha256": "8c1fc05546e67d791c086f96aa08b0395d5101d840a9cbe0558cdb7312b16a3c",
       "adapted_sha256": "382ac244e15c5ee693b4ef3ad1b414e9cc148dbe5c998f6379818379182bfc06"
-    },
-    {
-      "source": "transport/sudoku/obfs/sudoku/write_buffer_test.go",
-      "path": "transport/obfs/sudoku/write_buffer_test.go",
-      "source_sha256": "9c1c3bc60073f2355746e7443ddcf08420375eb7dcfb601b45cc9bb73efbc501",
-      "adapted_sha256": "9c1c3bc60073f2355746e7443ddcf08420375eb7dcfb601b45cc9bb73efbc501"
     },
     {
       "source": "transport/sudoku/server_api.go",
@@ -1271,12 +718,6 @@
       "adapted_sha256": "b02230e6fc11260ffe5667faa06a83f19b608b430d1fde08a6601e37582d507f"
     },
     {
-      "source": "transport/sudoku/users_test.go",
-      "path": "transport/users_test.go",
-      "source_sha256": "c34572911eacc45465ddd3035fcf6a2ecf56b12abbffe7eab98a12a71c16a581",
-      "adapted_sha256": "687845f2099be4cf31c60ca2fe13b5790d35875fa5fe15a8fbd64a54bacfc5c4"
-    },
-    {
       "source": "protocol/sudoku/outbound.go",
       "path": "outbound.go",
       "source_sha256": "8e3499defaf16eb6caf9068115716d02edab1dead1fc40ef61a2dcc58adb21fd",
@@ -1286,12 +727,6 @@
       "source": "protocol/sudoku/options_helpers.go",
       "path": "options_helpers.go",
       "source_sha256": "17d4a2715614358ea9a6e273ec36c7bf10e2e3b94308970bafb2f4f218acde71",
-      "local_changes": "package-local options and type; outbound adds validation and lifecycle cancellation"
-    },
-    {
-      "source": "protocol/sudoku/options_helpers_test.go",
-      "path": "options_helpers_test.go",
-      "source_sha256": "f3c31f7a09e3d6c7ac39780253e0a08d640077cd4f6959a1ce3470c6685e08ea",
       "local_changes": "package-local options and type; outbound adds validation and lifecycle cancellation"
     }
   ],

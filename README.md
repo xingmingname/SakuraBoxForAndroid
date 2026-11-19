@@ -8,6 +8,10 @@ SakuraBox 是基于 [NekoBox for Android](https://github.com/MatsuriDayo/NekoBox
 
 
 
+## 从源码构建
+
+见 [构建指南](BUILDING.md)。
+
 ## 鸣谢
  [SagerNet/sing-box](https://github.com/SagerNet/sing-box)
 [MatsuriDayo/NekoBoxForAndroid](https://github.com/MatsuriDayo/NekoBoxForAndroid)

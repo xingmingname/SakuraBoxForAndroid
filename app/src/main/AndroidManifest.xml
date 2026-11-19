@@ -156,6 +156,15 @@
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />
         </activity>
+
+        <activity
+            android:name="io.nekohasekai.sagernet.ui.CustomBrandActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name="io.nekohasekai.sagernet.ui.BrandThemeActivity"
+            android:exported="false" />
         <activity
             android:name="io.nekohasekai.sagernet.ui.ConnectionDetailsActivity"
             android:exported="false" />

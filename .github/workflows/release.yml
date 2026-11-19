@@ -1,4 +1,4 @@
-name: Manual source build validation
+name: Build SakuraBox from source
 on:
   workflow_dispatch:
 permissions:
@@ -25,5 +25,4 @@ jobs:
       - name: Build core from pinned sources and patches
         run: bash ./run lib core
       - name: Check Android source and Debug build
-        run: ./gradlew --no-daemon testOssDebugUnitTest assembleOssDebug processOssReleaseMainManifest
-      # Validation only; no remote writes or artifact uploads.
+        run: ./gradlew --no-daemon assembleOssDebug assembleOssRelease

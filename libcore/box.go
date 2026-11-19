@@ -277,6 +277,13 @@ func (b *BoxInstance) QueryStats(tag, direct string) int64 {
 	return b.v2api.QueryStats(fmt.Sprintf("outbound>>>%s>>>traffic>>>%s", tag, direct))
 }
 
+func (b *BoxInstance) DashboardSelectedOutbound() string {
+	if b.selector == nil {
+		return ""
+	}
+	return b.selector.Now()
+}
+
 func (b *BoxInstance) SelectOutbound(tag string) bool {
 	if b.selector != nil {
 		return b.selector.SelectOutbound(tag)

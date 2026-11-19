@@ -42,4 +42,8 @@
         <ignore path="app/src/main/res/mipmap-xxhdpi/ic_launcher.png" />
         <ignore path="app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" />
     </issue>
+    <!-- Preserve the original NekoBox glyph geometry for the cached Quick Settings icon. -->
+    <issue id="VectorPath">
+        <ignore path="app/src/main/res/drawable/ic_neko_tile.xml" />
+    </issue>
 </lint>

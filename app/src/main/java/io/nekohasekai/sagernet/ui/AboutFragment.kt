@@ -20,6 +20,7 @@ import com.danielstone.materialaboutlibrary.items.MaterialAboutActionItem
 import com.danielstone.materialaboutlibrary.model.MaterialAboutCard
 import com.danielstone.materialaboutlibrary.model.MaterialAboutList
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.branding.BrandThemeManager
 import io.nekohasekai.sagernet.databinding.LayoutAboutBinding
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager.loadString
@@ -47,7 +48,6 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
         super.onViewCreated(view, savedInstanceState)
 
         val binding = LayoutAboutBinding.bind(view)
-
         ViewCompat.setOnApplyWindowInsetsListener(view, ListListener)
         toolbar.setTitle(R.string.menu_about)
 
@@ -67,6 +67,15 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val binding = LayoutAboutBinding.bind(requireView())
+        val brand = BrandThemeManager.appearance(binding.root.context)
+        brand.showLogo(binding.brandLogo)
+        binding.brandLogo.setContentDescription(getString(brand.theme.aboutTitle))
+        binding.brandName.setText(brand.theme.aboutTitle)
     }
 
     class AboutContent : MaterialAboutFragment() {
