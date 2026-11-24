@@ -1,5 +1,7 @@
 # SakuraBox 源码构建
 
+## 注：以下为AI生成
+
 ## 工具链
 
 - JDK 21、Go 1.26.9、Git 和 Bash。Windows 离线工具需要 PowerShell 与 Python 3.11+。
