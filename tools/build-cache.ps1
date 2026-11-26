@@ -42,8 +42,8 @@ function Assert-SakuraGradleCachePolicy {
 function Write-SakuraBuildRetention {
     param([string]$RunDirectory,[string]$Kind,[hashtable]$Caches)
     $record=[ordered]@{
-        schema=1; kind=$Kind; recorded_before_execution=$true; execution_result='See build/test logs'; caches=$Caches; automatic_deletion=$false
-        retain=@('APK/AAR and source manifests','mapping','build/test logs and results','reports','config fixtures','copied test source and patches','signing materials: never cleanup candidates')
+        schema=1; kind=$Kind; recorded_before_execution=$true; execution_result='See build logs'; caches=$Caches; automatic_deletion=$false
+        retain=@('APK/AAR and source manifests','mapping','build logs and results','signing materials: never cleanup candidates')
         review_generated_only=if ($Kind -eq 'android') {@('build/app/intermediates','build/app/tmp','build/app/kspCaches','project-cache')} else {@('cold-go-cache when explicitly requested')}
         cleanup_requires='Manual review of actual inputs, references, links and retained assets; this record does not authorize deletion'
     }

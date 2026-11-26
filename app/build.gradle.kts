@@ -49,14 +49,6 @@ android {
     }
 }
 
-// Regression suites are maintained in a separate local workspace.
-androidComponents {
-    beforeVariants { variant ->
-        variant.deviceTests.values.forEach { it.enable = false }
-        variant.hostTests.values.forEach { it.enable = false }
-    }
-}
-
 tasks.named("preBuild") { dependsOn(generateProjectLicenseAssets) }
 
 dependencies {

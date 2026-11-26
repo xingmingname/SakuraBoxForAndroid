@@ -92,5 +92,17 @@ SAKURABOX_*_REVIEW.md
 /libcore/**/*_test.go
 /libcore/**/testdata/
 /tools/tests/
+/tools/security001-probe/
+/tools/prepare-host-tests.py
+/tools/check-shortcut-security.py
+/tools/check-sudoku.py
+/tools/offline-go-tests.ps1
+/tools/sudoku-shortlink-oracle_test.go.txt
+/tools/sudoku-test-install.init.gradle
+/tools/test-gson-r8.py
+/tools/test-profile-migrations.py
+/tools/test-protocol-preferences.py
+/tools/verify-app-identity.init.gradle
+/tools/verify-artifacts.py
 /tools/__pycache__/
 /CHANGELOG.md

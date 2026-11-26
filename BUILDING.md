@@ -4,7 +4,7 @@
 
 ## 工具链
 
-- JDK 21、Go 1.26.9、Git 和 Bash。Windows 离线工具需要 PowerShell 与 Python 3.11+。
+- JDK 21、Go 1.26.9、Git 和 Bash。Windows 离线构建需要 PowerShell。若要重新生成品牌图标，另需 Python 和 Pillow。
 - Android SDK platform 35、Build Tools 35.0.1、NDK 27.0.12077973。应用最低版本为 Android API 21。
 - Gradle 使用仓库的 Wrapper。SDK 与 JDK 路径通过 ANDROID_HOME 和 JAVA_HOME 配置。
 - sing-box、libneko 和 gomobile 的固定提交记录在 buildScript/lib/core/get_source_env.sh。源码准备脚本会应用 buildScript/lib/core/patches 中的适配。
@@ -33,7 +33,7 @@ bash ./run lib core
 ./tools/offline-android-build.ps1 -CoreAar .local-builds/native/libcore-sing-box-1.14.3-sakura-with_nakis.aar -RunDirectory .local-builds/android
 ```
 
-可用 -Tasks 选择具体 Gradle 任务。四种 ABI 的 APK 位于相应的 build/app/outputs/apk/oss/ 输出目录。tools/verify-artifacts.py 可核验 ABI、JNI、原生库来源、签名及 16 KiB 对齐。
+可用 -Tasks 选择具体 Gradle 任务。四种 ABI 的 APK 位于相应的 build/app/outputs/apk/oss/ 输出目录。发布前可使用 Android SDK 的 aapt、apksigner 和 zipalign 核对 APK 包信息、签名及 16 KiB 对齐。
 
 正式签名使用维护者在本机提供的签名材料与构建属性。源码不包含签名所需的密钥。无正式签名配置时，Release APK 为未签名产物。
 

@@ -2,8 +2,8 @@ package io.nekohasekai.sagernet.fmt
 
 import libcore.Libcore
 import io.nekohasekai.sagernet.*
-import io.nekohasekai.sagernet.bg.VpnService
 import io.nekohasekai.sagernet.config.chain.OutboundChainBuilder
+import io.nekohasekai.sagernet.config.inbound.buildTunInbound
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_CONFIG
@@ -171,36 +171,14 @@ fun buildConfig(
         inbounds = mutableListOf()
 
         if (!forTest) {
-            if (isVPN) inbounds.add(Inbound_TunOptions().apply {
-                type = "tun"
-                tag = "tun-in"
-                stack = when (DataStore.tunImplementation) {
-                    TunImplementation.GVISOR -> "gvisor"
-                    TunImplementation.SYSTEM -> "system"
-                    else -> "mixed"
-                }
-                _hack_config_map["udp_mapping"] = "endpoint_independent"
-                _hack_config_map["udp_filtering"] = "endpoint_independent"
-                mtu = DataStore.mtu
-                address = mutableListOf()
-                domain_strategy = genDomainStrategy(DataStore.resolveDestination)
-                sniff = needSniff
-                sniff_override_destination = needSniffOverride
-                when (ipv6Mode) {
-                    IPv6Mode.DISABLE -> {
-                        address.add(VpnService.PRIVATE_VLAN4_CLIENT + "/28")
-                    }
-
-                    IPv6Mode.ONLY -> {
-                        address.add(VpnService.PRIVATE_VLAN6_CLIENT + "/126")
-                    }
-
-                    else -> {
-                        address.add(VpnService.PRIVATE_VLAN4_CLIENT + "/28")
-                        address.add(VpnService.PRIVATE_VLAN6_CLIENT + "/126")
-                    }
-                }
-            })
+            if (isVPN) inbounds.add(buildTunInbound(
+                implementation = DataStore.tunImplementation,
+                mtuValue = DataStore.mtu,
+                domainStrategy = genDomainStrategy(DataStore.resolveDestination),
+                sniffTraffic = needSniff,
+                overrideDestination = needSniffOverride,
+                ipv6Mode = ipv6Mode,
+            ))
             inbounds.add(Inbound_MixedOptions().apply {
                 type = "mixed"
                 tag = TAG_MIXED
@@ -316,52 +294,10 @@ fun buildConfig(
             }
         }
 
-        if (forTest) {
-            dns.rules = listOf()
-        } else {
-            // built-in DNS rules
-            route.rules.add(0, Rule_DefaultOptions().apply {
-                protocol = listOf("dns")
-                action = "hijack-dns"
-            })
-            route.rules.add(0, Rule_DefaultOptions().apply {
-                port = listOf(53)
-                action = "hijack-dns"
-            })
-            if (DataStore.bypassLanInCore) {
-                route.rules.add(Rule_DefaultOptions().apply {
-                    outbound = TAG_BYPASS
-                    ip_is_private = true
-                })
-            }
-            // block mcast
-            route.rules.add(Rule_DefaultOptions().apply {
-                ip_cidr = listOf("224.0.0.0/3", "ff00::/8")
-                source_ip_cidr = listOf("224.0.0.0/3", "ff00::/8")
-                action = "reject"
-            })
-            // FakeDNS obj
-            if (useFakeDns) {
-                dns.servers.add(DNSServerOptions().apply {
-                    type = "fakeip"
-                    tag = "dns-fake"
-                    inet4_range = "198.18.0.0/15"
-                    inet6_range = "fc00::/18"
-                })
-                dns.rules.add(DNSRule_DefaultOptions().apply {
-                    inbound = listOf("tun-in")
-                    routeDnsRule(this, "dns-fake", fakeDnsStrategy(ipv6Mode == IPv6Mode.ONLY))
-                    disable_cache = true
-                })
-            }
-            // force bypass (always top DNS rule)
-            if (domainListDNSDirectForce.isNotEmpty()) {
-                dns.rules.add(0, DNSRule_DefaultOptions().apply {
-                    makeSingBoxRule(domainListDNSDirectForce.toHashSet().toList())
-                    routeDnsRule(this, "dns-direct", directDnsStrategy)
-                })
-            }
-        }
+        applyBuiltInRoutingRules(
+            route, dns, forTest, useFakeDns, ipv6Mode, domainListDNSDirectForce, directDnsStrategy,
+            bypassLan = { DataStore.bypassLanInCore },
+        )
 
         if (!forTest) _hack_custom_config = DataStore.globalCustomConfig
     }.let {

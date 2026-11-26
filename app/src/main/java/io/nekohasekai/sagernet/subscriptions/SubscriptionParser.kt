@@ -7,6 +7,7 @@ import io.nekohasekai.sagernet.fmt.shadowsocks.parseShadowsocks
 import io.nekohasekai.sagernet.fmt.trojan_go.parseTrojanGo
 import io.nekohasekai.sagernet.fmt.wireguard.parseWireGuardSubscription
 import io.nekohasekai.sagernet.ktx.*
+import io.nekohasekai.sagernet.subscriptions.clash.parseClashSubscription
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -17,7 +18,6 @@ import moe.matsuri.nb4a.utils.ImportLimits
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
-import org.yaml.snakeyaml.error.YAMLException
 import java.io.InterruptedIOException
 
 internal object SubscriptionParser {
@@ -29,11 +29,7 @@ internal object SubscriptionParser {
         }
 
         if (text.contains("proxies:")) {
-            try {
-                return parseClashSubscription(text)
-            } catch (e: YAMLException) {
-                Logs.w(e)
-            }
+            parseClashSubscription(text)?.let { return it }
         } else if (text.contains("[Interface]")) {
             // wireguard
             try {

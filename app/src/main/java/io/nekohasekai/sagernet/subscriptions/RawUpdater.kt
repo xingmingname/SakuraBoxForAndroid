@@ -18,7 +18,6 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.runInterruptible
 import libcore.Libcore
-import moe.matsuri.nb4a.Protocols
 import moe.matsuri.nb4a.utils.ImportLimits
 import moe.matsuri.nb4a.utils.Util
 
@@ -32,51 +31,16 @@ object RawUpdater : GroupUpdater() {
         byUser: Boolean
     ) {
 
-        var proxies = loadProfiles(proxyGroup, subscription)
+        val namedProfiles = normalizeSubscriptionNames(loadProfiles(proxyGroup, subscription))
 
-        currentCoroutineContext().ensureActive()
-        ImportLimits.checkNodeCount(proxies.size.toLong())
-        val proxiesMap = LinkedHashMap<String, AbstractBean>()
-        val names = ImportLimits.Names()
-        for (proxy in proxies) {
-            currentCoroutineContext().ensureActive()
-            val original = proxy.displayName()
-            val name = names.allocate(original)
-            if (name != original) proxy.name = name
-            proxiesMap[name] = proxy
-        }
-        proxies = proxiesMap.values.toList()
-
-        if (subscription.forceResolve) forceResolve(proxies, proxyGroup.id)
+        if (subscription.forceResolve) forceResolve(namedProfiles, proxyGroup.id)
 
         currentCoroutineContext().ensureActive()
         val exists = SagerDatabase.proxyDao.getByGroup(proxyGroup.id)
-        val duplicate = ArrayList<String>()
-        if (subscription.deduplication) {
-            Logs.d("Before deduplication: ${proxies.size}")
-            val uniqueProxies = LinkedHashSet<Protocols.Deduplication>()
-            val uniqueNames = HashMap<Protocols.Deduplication, String>()
-            val uniqueIndexes = HashMap<Protocols.Deduplication, Int>()
-            for (_proxy in proxies) {
-                currentCoroutineContext().ensureActive()
-                val proxy = Protocols.Deduplication(_proxy, _proxy.javaClass.toString())
-                if (!uniqueProxies.add(proxy)) {
-                    val index = uniqueIndexes.getValue(proxy)
-                    if (uniqueNames.containsKey(proxy)) {
-                        val name = uniqueNames[proxy]!!.replace(" ($index)", "")
-                        if (name.isNotBlank()) {
-                            duplicate.add("$name ($index)")
-                            uniqueNames[proxy] = ""
-                        }
-                    }
-                    duplicate.add(_proxy.displayName() + " ($index)")
-                } else {
-                    uniqueIndexes[proxy] = uniqueProxies.size - 1
-                    uniqueNames[proxy] = _proxy.displayName()
-                }
-            }
-            uniqueProxies.retainAll(uniqueNames.keys)
-            proxies = uniqueProxies.toList().map { it.bean }
+        val (proxies, duplicate) = if (subscription.deduplication) {
+            deduplicateSubscriptionProfiles(namedProfiles)
+        } else {
+            namedProfiles to emptyList()
         }
 
         Logs.d("New profiles: ${proxies.size}")
